@@ -1,6 +1,135 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, createContext, useContext } from "react";
 import certData from "./data/certifications.json";
+
+// ── Language support ──────────────────────────────────────────────────────────
+type Lang = "en"|"fr"|"es"|"pt";
+const LangCtx = createContext<{lang:Lang;setLang:(l:Lang)=>void}>({lang:"en",setLang:()=>{}});
+const useLang = () => useContext(LangCtx);
+
+// Try to load pre-generated translations (run generate_translations.py first)
+let TRANS: Record<string, Record<string, Record<string, {q:string;choices:string[];exp:string}>>> = {};
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  TRANS = require("./data/translations.json");
+} catch { /* translations not generated yet — English only */ }
+
+function tQ(catId:string, idx:number, q:{q:string;choices:string[];exp:string}, lang:Lang) {
+  if(lang==="en") return q;
+  const t = TRANS?.[catId]?.[lang]?.[String(idx)];
+  return t ? {...q, ...t} : q;
+}
+
+const LANG_META: Record<Lang,{flag:string;name:string}> = {
+  en:{flag:"🇺🇸",name:"English"},
+  fr:{flag:"🇫🇷",name:"Français"},
+  es:{flag:"🇪🇸",name:"Español"},
+  pt:{flag:"🇧🇷",name:"Português"},
+};
+
+// Translated UI strings
+const UI: Record<Lang, Record<string,string>> = {
+  en: {
+    tagline:"Free License & Certification Prep",
+    subtitle:"Tap a certification → fee, location, official links · flashcards & chapter quizzes",
+    questions:"questions",flashcards:"Flashcards",chapters:"Chapter quizzes",levels:"3 levels",free:"Free",
+    allCerts:"NYC Licenses & Certifications",
+    examDetails:"Exam details",fee:"💰 Fee",studyTime:"⏱ Study time",difficulty:"📊 Difficulty",
+    languages:"🌍 Languages",location:"📍 Where to take it",officialResources:"Official resources",
+    officialPage:"Official exam page",studyGuide:"Official study guide",bookExam:"Book your exam",
+    practiceWith:"Practice with us — free",startStudying:"📚 Start Studying →",
+    allN:"All",cards:"Cards",quiz:"Quiz",difficultyTitle:"Choose difficulty",
+    easyL:"Easy",medL:"Medium",hardL:"Hard",
+    easyD:"Foundational concepts — start here",
+    medD:"Core material — what the exam covers",
+    hardD:"Advanced — exam-ready challenge",
+    qs15:"15 Qs",tapReveal:"Tap card to reveal · then mark yourself",
+    question:"Question — tap to reveal answer",answer:"Answer — tap to go back",
+    reviewAgain:"↺ Review again",gotIt:"✓ Got it",deckDone:"Deck complete!",restart:"Restart",back:"← Back",
+    niceWork:"Nice work!",keepGoing:"Keep studying!",
+    bookExamBtn:"📅 Book your exam →",studyGuideBtn:"📖 Official study guide →",
+    tryAnother:"← Try another level",noQuestions:"No questions for this selection.",
+    next:"Next →",seeResults:"See Results",why:"Why",correct:"✓ Correct",wrong:"✗ Wrong",
+    practiceOnly:"Practice only. Verify current fees and requirements with the official agency before registering.",
+    footer:"Free for everyone · no account needed · verify fees with official agencies",
+    jangMeans:"Jàng (Wolof: to study) · also available as a mobile app",
+  },
+  fr: {
+    tagline:"Préparation aux licences et certifications — Gratuit",
+    subtitle:"Appuyez sur une certification → frais, lieu, liens officiels · cartes mémoire et quiz",
+    questions:"questions",flashcards:"Cartes mémoire",chapters:"Quiz par chapitre",levels:"3 niveaux",free:"Gratuit",
+    allCerts:"Licences et certifications NYC",
+    examDetails:"Détails de l'examen",fee:"💰 Frais",studyTime:"⏱ Durée de préparation",difficulty:"📊 Difficulté",
+    languages:"🌍 Langues",location:"📍 Lieu de l'examen",officialResources:"Ressources officielles",
+    officialPage:"Page officielle de l'examen",studyGuide:"Guide d'étude officiel",bookExam:"Réserver votre examen",
+    practiceWith:"Pratiquez avec nous — gratuit",startStudying:"📚 Commencer à étudier →",
+    allN:"Tout",cards:"Cartes",quiz:"Quiz",difficultyTitle:"Choisir la difficulté",
+    easyL:"Facile",medL:"Moyen",hardL:"Difficile",
+    easyD:"Concepts de base — commencez ici",
+    medD:"Matière principale — ce que couvre l'examen",
+    hardD:"Avancé — prêt pour l'examen",
+    qs15:"15 Qs",tapReveal:"Appuyez sur la carte pour révéler · puis évaluez-vous",
+    question:"Question — appuyez pour révéler",answer:"Réponse — appuyez pour revenir",
+    reviewAgain:"↺ À revoir",gotIt:"✓ Compris",deckDone:"Jeu terminé !",restart:"Recommencer",back:"← Retour",
+    niceWork:"Bien joué !",keepGoing:"Continuez à étudier !",
+    bookExamBtn:"📅 Réserver votre examen →",studyGuideBtn:"📖 Guide d'étude officiel →",
+    tryAnother:"← Essayer un autre niveau",noQuestions:"Pas de questions pour cette sélection.",
+    next:"Suivant →",seeResults:"Voir les résultats",why:"Pourquoi",correct:"✓ Correct",wrong:"✗ Faux",
+    practiceOnly:"Entraînement uniquement. Vérifiez les frais et exigences actuels avec l'organisme officiel.",
+    footer:"Gratuit pour tous · sans compte · vérifiez les frais avec les organismes officiels",
+    jangMeans:"Jàng (en wolof : « étudier ») · aussi disponible sur mobile",
+  },
+  es: {
+    tagline:"Preparación gratuita para licencias y certificaciones",
+    subtitle:"Toque una certificación → tarifa, lugar, enlaces oficiales · tarjetas y cuestionarios",
+    questions:"preguntas",flashcards:"Tarjetas",chapters:"Quiz por capítulo",levels:"3 niveles",free:"Gratis",
+    allCerts:"Licencias y certificaciones de NYC",
+    examDetails:"Detalles del examen",fee:"💰 Tarifa",studyTime:"⏱ Tiempo de estudio",difficulty:"📊 Dificultad",
+    languages:"🌍 Idiomas",location:"📍 Dónde tomarlo",officialResources:"Recursos oficiales",
+    officialPage:"Página oficial del examen",studyGuide:"Guía de estudio oficial",bookExam:"Reservar su examen",
+    practiceWith:"Practique con nosotros — gratis",startStudying:"📚 Comenzar a estudiar →",
+    allN:"Todo",cards:"Tarjetas",quiz:"Quiz",difficultyTitle:"Elegir dificultad",
+    easyL:"Fácil",medL:"Medio",hardL:"Difícil",
+    easyD:"Conceptos básicos — empiece aquí",
+    medD:"Material principal — lo que cubre el examen",
+    hardD:"Avanzado — listo para el examen",
+    qs15:"15 Qs",tapReveal:"Toque la tarjeta para ver · luego evalúese",
+    question:"Pregunta — toque para revelar",answer:"Respuesta — toque para volver",
+    reviewAgain:"↺ Repasar",gotIt:"✓ Entendido",deckDone:"¡Mazo completo!",restart:"Reiniciar",back:"← Atrás",
+    niceWork:"¡Buen trabajo!",keepGoing:"¡Siga estudiando!",
+    bookExamBtn:"📅 Reservar examen →",studyGuideBtn:"📖 Guía de estudio oficial →",
+    tryAnother:"← Probar otro nivel",noQuestions:"No hay preguntas para esta selección.",
+    next:"Siguiente →",seeResults:"Ver resultados",why:"Por qué",correct:"✓ Correcto",wrong:"✗ Incorrecto",
+    practiceOnly:"Solo práctica. Verifique tarifas y requisitos actuales con el organismo oficial.",
+    footer:"Gratis para todos · sin cuenta · verifique tarifas con organismos oficiales",
+    jangMeans:"Jàng (en wolof: «estudiar») · también disponible como aplicación móvil",
+  },
+  pt: {
+    tagline:"Preparação gratuita para licenças e certificações",
+    subtitle:"Toque em uma certificação → taxa, local, links oficiais · cartões e questionários",
+    questions:"perguntas",flashcards:"Cartões",chapters:"Quiz por capítulo",levels:"3 níveis",free:"Grátis",
+    allCerts:"Licenças e certificações de NYC",
+    examDetails:"Detalhes do exame",fee:"💰 Taxa",studyTime:"⏱ Tempo de estudo",difficulty:"📊 Dificuldade",
+    languages:"🌍 Idiomas",location:"📍 Onde fazer o exame",officialResources:"Recursos oficiais",
+    officialPage:"Página oficial do exame",studyGuide:"Guia de estudo oficial",bookExam:"Agendar seu exame",
+    practiceWith:"Pratique conosco — grátis",startStudying:"📚 Começar a estudar →",
+    allN:"Tudo",cards:"Cartões",quiz:"Quiz",difficultyTitle:"Escolher dificuldade",
+    easyL:"Fácil",medL:"Médio",hardL:"Difícil",
+    easyD:"Conceitos básicos — comece aqui",
+    medD:"Material principal — o que o exame aborda",
+    hardD:"Avançado — pronto para o exame",
+    qs15:"15 Qs",tapReveal:"Toque no cartão para revelar · depois avalie-se",
+    question:"Pergunta — toque para revelar",answer:"Resposta — toque para voltar",
+    reviewAgain:"↺ Revisar",gotIt:"✓ Entendido",deckDone:"Baralho completo!",restart:"Reiniciar",back:"← Voltar",
+    niceWork:"Bom trabalho!",keepGoing:"Continue estudando!",
+    bookExamBtn:"📅 Agendar exame →",studyGuideBtn:"📖 Guia de estudo oficial →",
+    tryAnother:"← Tentar outro nível",noQuestions:"Sem perguntas para esta seleção.",
+    next:"Próximo →",seeResults:"Ver resultados",why:"Por que",correct:"✓ Correto",wrong:"✗ Errado",
+    practiceOnly:"Apenas prática. Verifique as taxas e requisitos atuais com o órgão oficial.",
+    footer:"Grátis para todos · sem conta · verifique taxas com órgãos oficiais",
+    jangMeans:"Jàng (em wólof: «estudar») · também disponível como aplicativo",
+  },
+};
 
 type Q = { id:string; q:string; choices:string[]; answer:number; exp:string; };
 type Cat = typeof certData.categories[0];
@@ -39,8 +168,8 @@ const META: Record<string,{fee:string;feeNote:string;where:string;officialUrl:st
     bookUrl:"https://www.atitesting.com/teas/register",
     timeToStudy:"4–12 weeks",difficulty:"High",languages:"English only"},
   interpreter:{
-    fee:"$200",feeNote:"NYS Unified Court System exam fee",
-    where:"111 Centre Street, Manhattan — Room 1189",
+    fee:"$200",feeNote:"NYS Unified Court System exam fee. Oral + written components.",
+    where:"111 Centre Street, Manhattan — Room 1189 (by appointment)",
     officialUrl:"https://www.nycourts.gov/careers/exams/exam-study-guides-resources",
     studyUrl:"https://www.nycourts.gov/careers/exams/exam-study-guides-resources",
     bookUrl:"https://www.nycourts.gov/careers/exams/exam-study-guides-resources",
@@ -79,15 +208,20 @@ function chOf(id:string,i:number,total:number){
 
 // ── Flashcard deck ─────────────────────────────────────────────────────────
 function Flashcards({cat,ch,onBack}:{cat:Cat&{color:string;bg:string};ch:string|null;onBack:()=>void}){
+  const {lang}=useLang();
+  const t=(k:string)=>UI[lang]?.[k]||UI.en[k]||k;
   const qs=ALL[cat.id]||[];
   const cards=useMemo(()=>{
-    const all=qs.map((q,i)=>({
-      front:q.q,
-      back:(q.choices[q.answer]||"")+"\n\n"+(q.exp||""),
-      ch:chOf(cat.id,i,qs.length)
-    }));
+    const all=qs.map((q,i)=>{
+      const tq=tQ(cat.id,i,q,lang);
+      return {
+        front:tq.q,
+        back:(tq.choices[q.answer]||"")+"\n\n"+(tq.exp||""),
+        ch:chOf(cat.id,i,qs.length)
+      };
+    });
     return ch?all.filter(c=>c.ch===ch):all;
-  },[cat.id,ch,qs]);
+  },[cat.id,ch,qs,lang]);
   const [idx,setIdx]=useState(0);
   const [flip,setFlip]=useState(false);
   const [got,setGot]=useState(0);
@@ -101,11 +235,11 @@ function Flashcards({cat,ch,onBack}:{cat:Cat&{color:string;bg:string};ch:string|
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow p-8 text-center">
         <div className="text-5xl mb-3">🎯</div>
-        <h2 className="text-xl font-black mb-2" style={{color:cat.color}}>Deck complete!</h2>
-        <p className="text-gray-500 mb-6">{got} got it · {rev} to review</p>
+        <h2 className="text-xl font-black mb-2" style={{color:cat.color}}>{t("deckDone")}</h2>
+        <p className="text-gray-500 mb-6">{got} {t("gotIt").replace("✓ ","")} · {rev} {t("reviewAgain").replace("↺ ","")}</p>
         <div className="flex gap-3">
-          <button onClick={()=>{setIdx(0);setFlip(false);setGot(0);setRev(0);}} className="flex-1 py-3 rounded-xl font-bold text-white" style={{backgroundColor:cat.color}}>Restart</button>
-          <button onClick={onBack} className="flex-1 py-3 rounded-xl font-bold border border-gray-200 text-gray-600">← Back</button>
+          <button onClick={()=>{setIdx(0);setFlip(false);setGot(0);setRev(0);}} className="flex-1 py-3 rounded-xl font-bold text-white" style={{backgroundColor:cat.color}}>{t("restart")}</button>
+          <button onClick={onBack} className="flex-1 py-3 rounded-xl font-bold border border-gray-200 text-gray-600">{t("back")}</button>
         </div>
       </div>
     </div>
@@ -127,15 +261,15 @@ function Flashcards({cat,ch,onBack}:{cat:Cat&{color:string;bg:string};ch:string|
         <button onClick={()=>setFlip(f=>!f)}
           className="w-full min-h-52 bg-white rounded-2xl shadow p-6 text-left active:scale-[0.99] transition-all relative mb-4">
           <span className="text-xs font-bold uppercase tracking-wide block mb-3" style={{color:cat.color}}>
-            {flip?"Answer — tap to go back":"Question — tap to reveal answer"}
+            {flip?t("answer"):t("question")}
           </span>
           <p className="text-gray-900 font-semibold leading-relaxed text-base whitespace-pre-line">{flip?card.back:card.front}</p>
           {!flip&&<div className="absolute bottom-4 right-4 text-gray-300 text-2xl">↺</div>}
         </button>
         {flip?(
           <div className="flex gap-3">
-            <button onClick={()=>mark(false)} className="flex-1 py-4 rounded-xl font-bold bg-red-50 border-2 border-red-200 text-red-600 hover:bg-red-100">↺ Review again</button>
-            <button onClick={()=>mark(true)} className="flex-1 py-4 rounded-xl font-bold bg-green-50 border-2 border-green-200 text-green-700 hover:bg-green-100">✓ Got it</button>
+            <button onClick={()=>mark(false)} className="flex-1 py-4 rounded-xl font-bold bg-red-50 border-2 border-red-200 text-red-600 hover:bg-red-100">{t("reviewAgain")}</button>
+            <button onClick={()=>mark(true)} className="flex-1 py-4 rounded-xl font-bold bg-green-50 border-2 border-green-200 text-green-700 hover:bg-green-100">{t("gotIt")}</button>
           </div>
         ):(
           <p className="text-center text-sm text-gray-400">Tap card to reveal · then mark yourself</p>
@@ -147,6 +281,8 @@ function Flashcards({cat,ch,onBack}:{cat:Cat&{color:string;bg:string};ch:string|
 
 // ── Quiz session ─────────────────────────────────────────────────────────────
 function Quiz({cat,diff,ch,onBack}:{cat:Cat&{color:string;bg:string};diff:Diff;ch:string|null;onBack:()=>void}){
+  const {lang}=useLang();
+  const t=(k:string)=>UI[lang]?.[k]||UI.en[k]||k;
   const allQs=ALL[cat.id]||[];
   const qs=useMemo(()=>{
     let pool=allQs.map((q,i)=>({...q,_ch:chOf(cat.id,i,allQs.length)}));
@@ -161,9 +297,10 @@ function Quiz({cat,diff,ch,onBack}:{cat:Cat&{color:string;bg:string};diff:Diff;c
   const [score,setScore]=useState(0);
   const [done,setDone]=useState(false);
   const meta=META[cat.id];
-  const q=qs[idx];
-  const ok=picked===q?.answer;
-  function choose(i:number){if(picked!==null||!q)return;setPicked(i);if(i===q.answer)setScore(s=>s+1);}
+  const _q=qs[idx];
+  const q:{q:string;choices:string[];exp:string;answer:number}|undefined = _q ? {..._q,...tQ(cat.id,idx,_q,lang)} : undefined;
+  const ok=picked===_q?.answer;
+  function choose(i:number){if(picked!==null||!_q)return;setPicked(i);if(i===_q.answer)setScore(s=>s+1);}
   function next(){if(idx+1>=qs.length){setDone(true);return;}setIdx(i=>i+1);setPicked(null);}
   if(!qs.length)return(
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -178,21 +315,22 @@ function Quiz({cat,diff,ch,onBack}:{cat:Cat&{color:string;bg:string};diff:Diff;c
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow p-8 text-center">
           <div className="text-5xl mb-3">{pass?"🎉":"📚"}</div>
-          <h2 className="text-2xl font-black mb-1" style={{color:cat.color}}>{pass?"Nice work!":"Keep studying!"}</h2>
+          <h2 className="text-2xl font-black mb-1" style={{color:cat.color}}>{pass?t("niceWork"):t("keepGoing")}</h2>
           <p className="text-gray-500 mb-4">{score}/{qs.length} correct · {pct}%</p>
           <div className="h-3 bg-gray-100 rounded-full mb-6 overflow-hidden">
             <div className="h-full rounded-full" style={{width:`${pct}%`,backgroundColor:pass?"#16a34a":"#f59e0b"}}/>
           </div>
           <a href={pass?meta.bookUrl:meta.studyUrl} target="_blank" rel="noopener noreferrer"
             className="block w-full py-3 rounded-xl text-white font-bold text-center mb-3 hover:opacity-90" style={{backgroundColor:cat.color}}>
-            {pass?"📅 Book your exam →":"📖 Official study guide →"}
+            {pass?t("bookExamBtn"):t("studyGuideBtn")}
           </a>
-          <button onClick={onBack} className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-600">← Try another level</button>
+          <button onClick={onBack} className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-600">{t("tryAnother")}</button>
         </div>
       </div>
     );
   }
-  const diffLabel={easy:"🟢 Easy",medium:"🟡 Medium",hard:"🔴 Hard"}[diff];
+  const diffLabel={easy:"🟢",medium:"🟡",hard:"🔴"}[diff]+" "+{easy:t("easyL"),medium:t("medL"),hard:t("hardL")}[diff];
+  if(!q)return null;
   return(
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3" style={{backgroundColor:cat.color}}>
@@ -226,13 +364,13 @@ function Quiz({cat,diff,ch,onBack}:{cat:Cat&{color:string;bg:string};diff:Diff;c
         </div>
         {picked!==null&&q.exp&&(
           <div className="p-4 rounded-xl bg-amber-50 border-l-4 border-amber-400 mb-4">
-            <p className="text-xs font-bold text-amber-700 mb-1">{ok?"✓ Correct":"✗ Wrong"} — Why</p>
+            <p className="text-xs font-bold text-amber-700 mb-1">{ok?t("correct"):t("wrong")} — {t("why")}</p>
             <p className="text-sm text-amber-900 leading-relaxed">{q.exp}</p>
           </div>
         )}
         {picked!==null&&(
           <button onClick={next} className="w-full py-4 rounded-xl font-black text-white hover:opacity-90" style={{backgroundColor:cat.color}}>
-            {idx+1<qs.length?"Next →":"See Results"}
+            {idx+1<qs.length?t("next"):t("seeResults")}
           </button>
         )}
       </div>
@@ -242,6 +380,8 @@ function Quiz({cat,diff,ch,onBack}:{cat:Cat&{color:string;bg:string};diff:Diff;c
 
 // ── Study hub: chapters + mode + difficulty ───────────────────────────────
 function StudyHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void}){
+  const {lang}=useLang();
+  const t=(k:string)=>UI[lang]?.[k]||UI.en[k]||k;
   const [ch,setCh]=useState<string|null>(null);
   const [mode,setMode]=useState<Mode|null>(null);
   const [diff,setDiff]=useState<Diff|null>(null);
@@ -260,13 +400,13 @@ function StudyHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void
       </div>
       <div className="max-w-lg mx-auto p-4 pt-6 flex flex-col gap-3">
         <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold px-1">15 questions · choose your level</p>
-        {([["easy","🟢","Easy","Foundational concepts — new to this topic"],
-           ["medium","🟡","Medium","Core material — what the exam focuses on"],
-           ["hard","🔴","Hard","Advanced questions — exam-ready challenge"]] as const).map(([d,emoji,label,desc])=>(
+        {([["easy","🟢","easyL","easyD"],
+           ["medium","🟡","medL","medD"],
+           ["hard","🔴","hardL","hardD"]] as const).map(([d,emoji,lk,dk])=>(
           <button key={d} onClick={()=>setDiff(d as Diff)}
             className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-2 border-transparent hover:border-blue-200 flex items-center gap-4 active:scale-[0.99] transition-all">
             <span className="text-3xl">{emoji}</span>
-            <div className="flex-1"><div className="font-bold text-gray-900">{label}</div><div className="text-sm text-gray-500 mt-0.5">{desc}</div></div>
+            <div className="flex-1"><div className="font-bold text-gray-900">{t(lk)}</div><div className="text-sm text-gray-500 mt-0.5">{t(dk)}</div></div>
             <span className="text-xs font-bold px-2 py-1 rounded-full" style={{backgroundColor:cat.bg,color:cat.color}}>15 Qs</span>
           </button>
         ))}
@@ -330,6 +470,8 @@ function StudyHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void
 
 // ── Exam hub ──────────────────────────────────────────────────────────────
 function ExamHub({cat,onStudy,onBack}:{cat:Cat;onStudy:()=>void;onBack:()=>void}){
+  const {lang}=useLang();
+  const t=(k:string)=>UI[lang]?.[k]||UI.en[k]||k;
   const meta=META[cat.id];
   if(!meta)return null;
   const count=(ALL[cat.id]||[]).length;
@@ -356,8 +498,13 @@ function ExamHub({cat,onStudy,onBack}:{cat:Cat;onStudy:()=>void;onBack:()=>void}
           <p className="text-xs text-gray-400 mt-2">{meta.feeNote}</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Official resources</h3>
-          {[{icon:"🏛",label:"Official exam page",url:meta.officialUrl},{icon:"📖",label:"Official study guide",url:meta.studyUrl},{icon:"📅",label:"Book your exam",url:meta.bookUrl}].map(({icon,label,url})=>(
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">{t("officialResources")}</h3>
+          {[
+            {icon:"🏛",label:t("officialPage"),url:meta.officialUrl},
+            {icon:"📖",label:t("studyGuide"),url:meta.studyUrl},
+            {icon:"📅",label:t("bookExam"),url:meta.bookUrl},
+            ...(cat.id==="interpreter"?[{icon:"📝",label:"Official Sample Test (75 Qs, 90 min)",url:"https://www.surveygizmo.com/s3/4612658/Per-Diem-Court-Interpreter-Sample-Test"}]:[]),
+          ].map(({icon,label,url})=>(
             <a key={label} href={url} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 -mx-1 group">
               <span className="text-lg">{icon}</span>
@@ -370,23 +517,39 @@ function ExamHub({cat,onStudy,onBack}:{cat:Cat;onStudy:()=>void;onBack:()=>void}
           ))}
         </div>
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">Practice with us — free</h3>
-          <p className="text-xs text-gray-500 mb-4">{count} questions · flashcards · chapter quizzes · 3 difficulty levels</p>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1">{t("practiceWith")}</h3>
+          <p className="text-xs text-gray-500 mb-4">{count} {t("questions")} · {t("flashcards")} · {t("chapters")} · {t("levels")}</p>
           <button onClick={onStudy} className="w-full py-4 rounded-xl font-black text-white text-base hover:opacity-90" style={{backgroundColor:cat.color}}>
-            📚 Start Studying →
+            {t("startStudying")}
           </button>
         </div>
-        <p className="text-xs text-gray-400 text-center px-4 pb-6 leading-relaxed">
-          Practice only. Verify current fees and requirements with the official agency before registering.
-        </p>
+        <p className="text-xs text-gray-400 text-center px-4 pb-6 leading-relaxed">{t("practiceOnly")}</p>
       </div>
     </div>
   );
 }
 
+// ── Language selector bar ────────────────────────────────────────────────────
+function LangBar(){
+  const {lang,setLang}=useLang();
+  return(
+    <div className="flex gap-1 justify-end px-4 py-2 bg-white border-b border-gray-100">
+      {(Object.entries(LANG_META) as [Lang,{flag:string;name:string}][]).map(([code,m])=>(
+        <button key={code} onClick={()=>setLang(code)}
+          className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${lang===code?"text-white shadow":"text-gray-500 hover:bg-gray-100"}`}
+          style={lang===code?{backgroundColor:"#003087"}:{}}>
+          {m.flag} {m.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Home ──────────────────────────────────────────────────────────────────
-export default function Home(){
+function HomeScreen(){
   type S="home"|"hub"|"study";
+  const {lang}=useLang();
+  const t=(k:string)=>UI[lang]?.[k]||UI.en[k]||k;
   const [screen,setScreen]=useState<S>("home");
   const [active,setActive]=useState<Cat|null>(null);
   function openHub(cat:Cat){setActive(cat);setScreen("hub");}
@@ -396,27 +559,26 @@ export default function Home(){
   const total=certData.categories.reduce((s,c)=>s+c.count,0);
   return(
     <div className="min-h-screen bg-gray-50">
-      <div className="px-4 pt-12 pb-8" style={{background:"linear-gradient(135deg, #003087 0%, #0052A5 100%)"}}>
+      <div className="px-4 pt-10 pb-8" style={{background:"linear-gradient(135deg, #003087 0%, #0052A5 100%)"}}>
         <div className="max-w-lg mx-auto">
           <div className="text-4xl mb-2">📚</div>
           <h1 className="text-3xl font-black text-white mb-1">Jàng NYC</h1>
-          <p className="text-blue-200 text-sm font-semibold mb-1">Free License &amp; Certification Prep</p>
-          <p className="text-blue-300 text-xs leading-relaxed">
-            Tap a certification → see fee, location, official links · then study with flashcards or chapter quizzes.
-          </p>
+          <p className="text-blue-200 text-sm font-semibold mb-1">{t("tagline")}</p>
+          <p className="text-blue-300 text-xs leading-relaxed">{t("subtitle")}</p>
         </div>
       </div>
+      <LangBar/>
       <div className="bg-white border-b border-gray-100 px-4 py-3">
         <div className="max-w-lg mx-auto flex gap-4 text-sm flex-wrap">
-          <span className="text-gray-500"><span className="font-bold text-gray-900">{total}</span> questions</span>
-          <span className="text-gray-500">📇 Flashcards</span>
-          <span className="text-gray-500">📝 Chapter quizzes</span>
-          <span className="text-gray-500">🟢🟡🔴 3 levels</span>
-          <span className="font-bold text-green-600">Free</span>
+          <span className="text-gray-500"><span className="font-bold text-gray-900">{total}</span> {t("questions")}</span>
+          <span className="text-gray-500">📇 {t("flashcards")}</span>
+          <span className="text-gray-500">📝 {t("chapters")}</span>
+          <span className="text-gray-500">🟢🟡🔴 {t("levels")}</span>
+          <span className="font-bold text-green-600">{t("free")}</span>
         </div>
       </div>
       <div className="max-w-lg mx-auto p-4 flex flex-col gap-3">
-        <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold px-1">NYC Licenses &amp; Certifications</p>
+        <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold px-1">{t("allCerts")}</p>
         {certData.categories.map(cat=>{
           const meta=META[cat.id]||{};
           return(
@@ -429,11 +591,11 @@ export default function Home(){
                   <div className="font-bold text-gray-900 text-sm">{cat.title}</div>
                   <div className="text-xs text-gray-500 mt-0.5 truncate">{cat.description}</div>
                 </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{backgroundColor:cat.bg,color:cat.color}}>{cat.count} Qs</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0" style={{backgroundColor:cat.bg,color:cat.color}}>{cat.count} {t("questions")}</span>
               </div>
               {"fee" in meta&&(
                 <div className="px-4 pb-3 pt-1 flex items-center gap-3 border-t border-gray-50">
-                  <span className="text-xs text-gray-400">Fee: <span className="font-semibold text-gray-700">{(meta as typeof META[string]).fee}</span></span>
+                  <span className="text-xs text-gray-400">{t("fee").replace("💰 ","")}: <span className="font-semibold text-gray-700">{(meta as typeof META[string]).fee}</span></span>
                   <span className="text-gray-200">·</span>
                   <span className="text-xs text-gray-400">{(meta as typeof META[string]).timeToStudy}</span>
                   <span className="text-gray-200">·</span>
@@ -446,10 +608,19 @@ export default function Home(){
       </div>
       <div className="max-w-lg mx-auto px-4 py-8 text-center">
         <p className="text-xs text-gray-400 leading-relaxed">
-          Free for everyone · no account needed · verify fees with official agencies
-          <br/><span className="font-medium">Jàng</span> (Wolof: &ldquo;to study&rdquo;) · also available as a mobile app
+          {t("footer")}<br/>
+          <span className="font-medium">Jàng</span> ({t("jangMeans").split("Jàng")[1]?.replace(/[()]/g,"")||"Wolof: to study"})
         </p>
       </div>
     </div>
+  );
+}
+
+export default function Home(){
+  const [lang,setLang]=useState<Lang>("en");
+  return(
+    <LangCtx.Provider value={{lang,setLang}}>
+      <HomeScreen/>
+    </LangCtx.Provider>
   );
 }
