@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, createContext, useContext } from "react";
+import { useState, useMemo, createContext, useContext, useEffect, useRef } from "react";
 import certData from "./data/certifications.json";
 
 // ── Language support ──────────────────────────────────────────────────────────
@@ -27,7 +27,16 @@ const LANG_META: Record<Lang,{flag:string;name:string}> = {
   pt:{flag:"🇧🇷",name:"Português"},
 };
 
-// Translated UI strings
+// ── Vocab + interpreter types ─────────────────────────────────────────────────
+type VocabCard = { id:string; term:string; definition_en:string; definition_fr:string; example:string; category:string; };
+const vocabData = (certData as unknown as {vocab?: Record<string,VocabCard[]>}).vocab || {};
+const INTERP_SECTIONS = ["A","B","C","D","E","F","G"];
+const INTERP_SECTION_NAMES: Record<string,string> = {
+  "A":"Sentence Completion","B":"Paragraph Comprehension","C":"Grammar & Usage",
+  "D":"Vocabulary — Synonyms","E":"Vocabulary — Antonyms","F":"Idiomatic Expressions","G":"Legal Terminology"
+};
+
+// ── Translated UI strings ─────────────────────────────────────────────────────
 const UI: Record<Lang, Record<string,string>> = {
   en: {
     tagline:"Free License & Certification Prep",
@@ -468,6 +477,418 @@ function StudyHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void
   );
 }
 
+// ── Vocabulary flashcards (interpreter) ──────────────────────────────────────
+function VocabDeck({catId,filter,onBack}:{catId:string;filter:string|null;onBack:()=>void}){
+  const {lang}=useLang();
+  const cards=(vocabData[catId]||[]).filter(c=>!filter||c.category===filter);
+  const [idx,setIdx]=useState(0);
+  const [flip,setFlip]=useState(false);
+  const [got,setGot]=useState(0);
+  const [rev,setRev]=useState(0);
+  const color="#E65100";
+  if(!cards.length)return(
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="text-center"><p className="text-gray-500 mb-4">No vocabulary cards for this selection.</p>
+      <button onClick={onBack} className="text-orange-600 font-bold">← Back</button></div>
+    </div>
+  );
+  if(idx>=cards.length)return(
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow p-8 text-center">
+        <div className="text-5xl mb-3">🎯</div>
+        <h2 className="text-xl font-black mb-2" style={{color}}>Vocab deck complete!</h2>
+        <p className="text-gray-500 mb-6">{got} ✓ know it · {rev} ↺ review</p>
+        <div className="flex gap-3">
+          <button onClick={()=>{setIdx(0);setFlip(false);setGot(0);setRev(0);}} className="flex-1 py-3 rounded-xl font-bold text-white" style={{backgroundColor:color}}>Restart</button>
+          <button onClick={onBack} className="flex-1 py-3 rounded-xl font-bold border border-gray-200 text-gray-600">← Back</button>
+        </div>
+      </div>
+    </div>
+  );
+  const card=cards[idx];
+  function mark(k:boolean){k?setGot(n=>n+1):setRev(n=>n+1);setFlip(false);setIdx(i=>i+1);}
+  return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3" style={{backgroundColor:color}}>
+        <button onClick={onBack} className="text-white/80 hover:text-white font-bold text-lg">←</button>
+        <div className="flex-1">
+          <div className="text-white font-bold text-sm">📇 Vocabulary · {filter||"All"}</div>
+          <div className="text-white/70 text-xs">{idx+1}/{cards.length} · {got}✓ {rev}↺</div>
+        </div>
+        <span className="text-white/70 text-xs">{lang==="fr"?"FR":"EN"}</span>
+      </div>
+      <div className="max-w-lg mx-auto p-4 pt-6">
+        <button onClick={()=>setFlip(f=>!f)}
+          className="w-full min-h-56 bg-white rounded-2xl shadow p-6 text-left active:scale-[0.99] transition-all relative mb-4">
+          {!flip?(
+            <>
+              <span className="text-xs font-bold uppercase tracking-wide text-orange-400 block mb-2">English term — tap to see meaning</span>
+              <p className="text-2xl font-black text-gray-900 mb-3">{card.term}</p>
+              <p className="text-xs text-gray-400 italic">"{card.example}"</p>
+              <div className="absolute bottom-4 right-4 text-gray-300 text-2xl">↺</div>
+            </>
+          ):(
+            <>
+              <span className="text-xs font-bold uppercase tracking-wide text-green-600 block mb-2">
+                {lang==="fr"?"Français":"English meaning"}
+              </span>
+              <p className="text-lg font-bold text-gray-900 mb-3">
+                {lang==="fr"?card.definition_fr:card.definition_en}
+              </p>
+              {lang==="fr"&&<p className="text-sm text-gray-500 mb-2">EN: {card.definition_en}</p>}
+              <p className="text-xs text-orange-500 italic">"{card.example}"</p>
+              <span className="inline-block mt-3 text-xs font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">{card.category}</span>
+            </>
+          )}
+        </button>
+        {flip?(
+          <div className="flex gap-3">
+            <button onClick={()=>mark(false)} className="flex-1 py-4 rounded-xl font-bold bg-red-50 border-2 border-red-200 text-red-600">↺ Review again</button>
+            <button onClick={()=>mark(true)}  className="flex-1 py-4 rounded-xl font-bold bg-green-50 border-2 border-green-200 text-green-700">✓ I know it</button>
+          </div>
+        ):(
+          <p className="text-center text-sm text-gray-400">Tap the card to see the {lang==="fr"?"French meaning":"definition"}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Official test mode (63 questions, 90 min, pass at 70%) ────────────────────
+function OfficialTest({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void}){
+  const allQs=(ALL[cat.id]||[]).slice(0,63); // official 63 only
+  const [idx,setIdx]=useState(0);
+  const [answers,setAnswers]=useState<Record<number,number>>({});
+  const [done,setDone]=useState(false);
+  const [secs,setSecs]=useState(90*60); // 90 minutes
+  const timerRef=useRef<ReturnType<typeof setInterval>|null>(null);
+
+  useEffect(()=>{
+    if(done)return;
+    timerRef.current=setInterval(()=>setSecs(s=>{if(s<=1){setDone(true);return 0;}return s-1;}),1000);
+    return ()=>{if(timerRef.current)clearInterval(timerRef.current);};
+  },[done]);
+
+  const color="#E65100";
+  const q=allQs[idx];
+  const picked=answers[idx]??null;
+
+  function choose(i:number){
+    if(picked!==null||!q)return;
+    setAnswers(a=>({...a,[idx]:i}));
+  }
+  function goNext(){if(idx+1>=allQs.length){setDone(true);}else{setIdx(i=>i+1);}}
+  function skip(){if(idx+1<allQs.length)setIdx(i=>i+1);}
+
+  const formatTime=(s:number)=>`${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+  const timeColor=secs<600?"#C62828":secs<1800?"#F9A825":undefined;
+
+  if(done){
+    const score=allQs.filter((_,i)=>answers[i]===allQs[i]?.answer).length;
+    const pct=Math.round((score/allQs.length)*100);
+    const pass=pct>=70;
+    // Section breakdown
+    const sections: Record<string,{total:number;correct:number}> = {};
+    allQs.forEach((q2,i)=>{
+      const sec=(q2 as {section?:string}).section||"?";
+      if(!sections[sec])sections[sec]={total:0,correct:0};
+      sections[sec].total++;
+      if(answers[i]===q2.answer)sections[sec].correct++;
+    });
+    return(
+      <div className="min-h-screen bg-gray-50">
+        <div className="sticky top-0 px-4 py-3" style={{backgroundColor:color}}>
+          <p className="text-white font-bold">Official Test — Results</p>
+        </div>
+        <div className="max-w-lg mx-auto p-4 pt-5">
+          <div className="bg-white rounded-2xl shadow p-6 mb-4 text-center">
+            <div className="text-5xl mb-3">{pass?"🎉":"📚"}</div>
+            <h2 className="text-2xl font-black mb-1" style={{color:pass?"#16a34a":"#C62828"}}>
+              {pass?"PASSED":"NOT PASSED"}
+            </h2>
+            <p className="text-3xl font-black mb-1">{pct}%</p>
+            <p className="text-gray-500 mb-4">{score} / {allQs.length} correct · passing score: 70% (53+/75 on real test)</p>
+            <div className="h-4 bg-gray-100 rounded-full mb-2 overflow-hidden">
+              <div className="h-full rounded-full transition-all" style={{width:`${pct}%`,backgroundColor:pass?"#16a34a":"#C62828"}}/>
+            </div>
+            <p className="text-xs text-gray-400">70% = passing threshold on the real NYS exam</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow p-4 mb-4">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">Score by section</h3>
+            {Object.entries(sections).sort(([a],[b])=>a.localeCompare(b)).map(([sec,{total,correct}])=>{
+              const spct=Math.round((correct/total)*100);
+              return(
+                <div key={sec} className="flex items-center gap-3 mb-2">
+                  <span className="w-6 font-black text-orange-500 text-sm">{sec}</span>
+                  <div className="flex-1">
+                    <div className="flex justify-between text-xs mb-0.5">
+                      <span className="font-medium text-gray-700">{INTERP_SECTION_NAMES[sec]||sec}</span>
+                      <span className={spct>=70?"text-green-600 font-bold":"text-red-500 font-bold"}>{correct}/{total}</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{width:`${spct}%`,backgroundColor:spct>=70?"#16a34a":"#C62828"}}/>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {!pass&&(
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+              <p className="text-sm font-bold text-amber-800 mb-1">Study focus: sections below 70%</p>
+              <p className="text-xs text-amber-700">Go back and drill those sections with flashcards + quizzes before retaking.</p>
+            </div>
+          )}
+          <div className="flex gap-3 mb-4">
+            {pass&&<a href="https://www.nycourts.gov/careers/exams/exam-study-guides-resources"
+              target="_blank" rel="noopener noreferrer"
+              className="flex-1 py-3 rounded-xl text-white font-bold text-center" style={{backgroundColor:color}}>
+              📅 Register for the exam →
+            </a>}
+            <button onClick={onBack} className="flex-1 py-3 rounded-xl border border-gray-200 font-bold text-gray-600">← Study more</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if(!q)return null;
+  const answered=Object.keys(answers).length;
+
+  return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 z-10 px-4 py-2 flex items-center gap-3" style={{backgroundColor:color}}>
+        <button onClick={onBack} className="text-white/70 hover:text-white font-bold text-lg">←</button>
+        <div className="flex-1">
+          <div className="text-white font-bold text-sm">Official Test · Section {(q as {section?:string}).section||"?"}</div>
+          <div className="text-white/70 text-xs">Q {idx+1}/{allQs.length} · {answered} answered</div>
+        </div>
+        <div className="text-right">
+          <div className="font-black text-sm" style={{color:timeColor||"white"}}>{formatTime(secs)}</div>
+          <div className="text-white/50 text-xs">remaining</div>
+        </div>
+      </div>
+      <div className="h-1" style={{backgroundColor:"#FFF3E0"}}>
+        <div className="h-full transition-all" style={{width:`${(answered/allQs.length)*100}%`,backgroundColor:color}}/>
+      </div>
+      <div className="max-w-lg mx-auto p-4 pt-5">
+        {(q as unknown as {passage?:string}).passage&&(
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+            <p className="text-xs font-bold text-blue-700 mb-1">READ — then answer the question below</p>
+            <p className="text-sm text-blue-900 leading-relaxed">{(q as unknown as {passage:string}).passage}</p>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm">
+          <p className="font-semibold text-gray-900 leading-relaxed">{q.q}</p>
+        </div>
+        <div className="flex flex-col gap-2 mb-4">
+          {q.choices.map((ch,i)=>{
+            const sel=picked===i,corr=i===q.answer,answered2=picked!==null;
+            let cls="bg-white border-gray-200 text-gray-800";
+            if(answered2){if(corr)cls="bg-green-50 border-green-400 text-green-800";else if(sel)cls="bg-red-50 border-red-400 text-red-800";}
+            return(
+              <button key={i} onClick={()=>choose(i)} className={`w-full text-left p-4 rounded-xl border-2 transition-all ${cls} ${picked===null?"hover:border-orange-200 hover:bg-orange-50/20":""}`}>
+                <span className="font-bold mr-2">{["A","B","C","D"][i]}.</span>{ch}
+                {answered2&&corr&&<span className="ml-2">✓</span>}
+                {answered2&&sel&&!corr&&<span className="ml-2">✗</span>}
+              </button>
+            );
+          })}
+        </div>
+        {picked!==null&&q.exp&&(
+          <div className="p-4 rounded-xl bg-amber-50 border-l-4 border-amber-400 mb-4">
+            <p className="text-xs font-bold text-amber-700 mb-1">{picked===q.answer?"✓ Correct":"✗ Wrong"} — Explanation</p>
+            <p className="text-sm text-amber-900 leading-relaxed">{q.exp}</p>
+          </div>
+        )}
+        <div className="flex gap-3">
+          {picked!==null&&<button onClick={goNext} className="flex-1 py-4 rounded-xl font-black text-white hover:opacity-90" style={{backgroundColor:color}}>
+            {idx+1<allQs.length?"Next →":"See Results"}
+          </button>}
+          {picked===null&&idx+1<allQs.length&&(
+            <button onClick={skip} className="w-full py-4 rounded-xl font-bold border-2 border-orange-200 text-orange-600">Skip for now →</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Interpreter hub (replaces StudyHub for interpreter) ───────────────────────
+function InterpreterHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void}){
+  const {lang}=useLang();
+  type IScreen = "menu"|"vocab"|"vocab_deck"|"sectionList"|"quiz_diff"|"quiz"|"official";
+  const [screen,setScreen]=useState<IScreen>("menu");
+  const [vocabFilter,setVocabFilter]=useState<string|null>(null);
+  const [section,setSection]=useState<string|null>(null);
+  const [diff,setDiff]=useState<"easy"|"medium"|"hard">("medium");
+  const color=cat.color;
+  const vocabCards=vocabData[cat.id]||[];
+
+  if(screen==="vocab_deck")return<VocabDeck catId={cat.id} filter={vocabFilter} onBack={()=>setScreen("vocab")}/>;
+  if(screen==="quiz"){
+    return<Quiz cat={cat} diff={diff} ch={section?INTERP_SECTION_NAMES[section]||section:null} onBack={()=>setScreen("quiz_diff")}/>;
+  }
+  if(screen==="official")return<OfficialTest cat={cat} onBack={()=>setScreen("menu")}/>;
+
+  if(screen==="vocab")return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 px-4 py-3 flex items-center gap-3" style={{backgroundColor:color}}>
+        <button onClick={()=>setScreen("menu")} className="text-white/80 hover:text-white font-bold text-lg">←</button>
+        <div className="text-white font-bold">📇 Vocabulary Flashcards</div>
+      </div>
+      <div className="max-w-lg mx-auto p-4 pt-5">
+        <p className="text-xs text-gray-400 mb-3 px-1">Study the vocabulary words from the exam. Tap a set to start.</p>
+        <button onClick={()=>{setVocabFilter(null);setScreen("vocab_deck");}}
+          className="w-full text-left bg-white rounded-2xl shadow-sm p-4 mb-3 border-l-4 hover:shadow-md active:scale-[0.99] transition-all" style={{borderLeftColor:color}}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-bold text-gray-900">All vocabulary words</div>
+              <div className="text-xs text-gray-500 mt-0.5">{vocabCards.length} terms · English + {lang==="fr"?"Français":"French"}</div>
+            </div>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{backgroundColor:cat.bg,color}}>{vocabCards.length}</span>
+          </div>
+        </button>
+        {[["vocabulary","📖 General Vocabulary","Words in Sections A–E"],
+          ["idiom","🗣 Idiomatic Expressions","Idioms from Section F"],
+          ["legal","⚖️ Legal Terminology","Terms from Section G"]].map(([cat2,label,desc])=>{
+          const n=vocabCards.filter(c=>c.category===cat2).length;
+          return(
+            <button key={cat2} onClick={()=>{setVocabFilter(cat2);setScreen("vocab_deck");}}
+              className="w-full text-left bg-white rounded-2xl shadow-sm p-4 mb-2 border-l-4 hover:shadow-md active:scale-[0.99] transition-all" style={{borderLeftColor:color}}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-gray-900">{label}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{backgroundColor:cat.bg,color}}>{n}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if(screen==="sectionList")return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 px-4 py-3 flex items-center gap-3" style={{backgroundColor:color}}>
+        <button onClick={()=>setScreen("menu")} className="text-white/80 hover:text-white font-bold text-lg">←</button>
+        <div className="text-white font-bold">Practice by Section</div>
+      </div>
+      <div className="max-w-lg mx-auto p-4 pt-5">
+        <p className="text-xs text-gray-400 mb-3 px-1">The real exam has 7 sections. Drill each one separately.</p>
+        {INTERP_SECTIONS.map(sec=>{
+          const qs=ALL[cat.id]||[];
+          const n=qs.filter(q=>(q as {section?:string}).section===sec).length;
+          if(!n)return null;
+          return(
+            <button key={sec} onClick={()=>{setSection(sec);setScreen("quiz_diff");}}
+              className="w-full text-left bg-white rounded-2xl shadow-sm p-4 mb-2 border-l-4 hover:shadow-md active:scale-[0.99] transition-all" style={{borderLeftColor:color}}>
+              <div className="flex items-center gap-4">
+                <span className="w-8 h-8 rounded-full flex items-center justify-center font-black text-white text-sm shrink-0" style={{backgroundColor:color}}>{sec}</span>
+                <div className="flex-1">
+                  <div className="font-bold text-gray-900 text-sm">{INTERP_SECTION_NAMES[sec]}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{n} questions</div>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if(screen==="quiz_diff")return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 px-4 py-3 flex items-center gap-3" style={{backgroundColor:color}}>
+        <button onClick={()=>{if(section)setSection(null);setScreen("sectionList");}} className="text-white/80 hover:text-white font-bold text-lg">←</button>
+        <div className="text-white font-bold truncate">{section?INTERP_SECTION_NAMES[section]:"All sections"} · Difficulty</div>
+      </div>
+      <div className="max-w-lg mx-auto p-4 pt-6 flex flex-col gap-3">
+        {([["easy","🟢","Easy — Learn the basics",    "Foundational questions · new to this topic"],
+           ["medium","🟡","Medium — Core prep",         "Questions that appear most on the exam"],
+           ["hard","🔴","Hard — Exam ready",          "Toughest questions · Section C, B, and G"]] as const).map(([d,e,l,desc])=>(
+          <button key={d} onClick={()=>{setDiff(d);setScreen("quiz");}}
+            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-2 border-transparent hover:border-orange-200 flex items-center gap-4 active:scale-[0.99] transition-all">
+            <span className="text-3xl">{e}</span>
+            <div className="flex-1"><div className="font-bold text-gray-900">{l}</div><div className="text-sm text-gray-500">{desc}</div></div>
+            <span className="text-xs font-bold px-2 py-1 rounded-full" style={{backgroundColor:cat.bg,color}}>15 Qs</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const qs=ALL[cat.id]||[];
+  return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 px-4 py-3 flex items-center gap-3" style={{backgroundColor:color}}>
+        <button onClick={onBack} className="text-white/80 hover:text-white font-bold text-lg">←</button>
+        <div className="text-white font-bold">⚖️ Court Interpreter</div>
+      </div>
+      <div className="max-w-lg mx-auto p-4 pt-5">
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-5">
+          <p className="text-sm font-bold text-orange-800 mb-1">📝 About the real exam</p>
+          <p className="text-xs text-orange-700 leading-relaxed">
+            75 multiple-choice questions · 90 minutes · 7 sections (A–G) · passing score: 70%
+            (approx. 53 correct). Written in English. Available in 70+ target languages.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3">
+          <button onClick={()=>setScreen("official")}
+            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-l-4 border-2 hover:shadow-md active:scale-[0.99] transition-all" style={{borderLeftColor:color,borderColor:color}}>
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">🏛</span>
+              <div className="flex-1">
+                <div className="font-black text-gray-900">Official Practice Test</div>
+                <div className="text-xs text-gray-500 mt-1">63 official questions · timed · pass/fail grading · section breakdown</div>
+              </div>
+              <span className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{backgroundColor:color}}>63 Qs</span>
+            </div>
+          </button>
+          <button onClick={()=>setScreen("vocab")}
+            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-l-4 hover:shadow-md active:scale-[0.99] transition-all" style={{borderLeftColor:color}}>
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">📇</span>
+              <div className="flex-1">
+                <div className="font-bold text-gray-900">Vocabulary Flashcards</div>
+                <div className="text-xs text-gray-500 mt-1">{vocabCards.length} terms · English + French · vocab, idioms, legal</div>
+              </div>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{backgroundColor:cat.bg,color}}>{vocabCards.length}</span>
+            </div>
+          </button>
+          <button onClick={()=>setScreen("sectionList")}
+            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-l-4 hover:shadow-md active:scale-[0.99] transition-all" style={{borderLeftColor:color}}>
+            <div className="flex items-center gap-4">
+              <span className="text-3xl">📚</span>
+              <div className="flex-1">
+                <div className="font-bold text-gray-900">Practice by Section</div>
+                <div className="text-xs text-gray-500 mt-1">A – G · drill each section separately · 15 questions · Easy/Medium/Hard</div>
+              </div>
+              <div className="flex gap-1">
+                {INTERP_SECTIONS.map(s=>(
+                  <span key={s} className="text-xs font-black w-5 h-5 rounded-full flex items-center justify-center text-white" style={{backgroundColor:color,fontSize:"9px"}}>{s}</span>
+                ))}
+              </div>
+            </div>
+          </button>
+          <a href="https://www.surveygizmo.com/s3/4612658/Per-Diem-Court-Interpreter-Sample-Test"
+            target="_blank" rel="noopener noreferrer"
+            className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-l-4 hover:shadow-md transition-all flex items-center gap-4" style={{borderLeftColor:"#888"}}>
+            <span className="text-3xl">🔗</span>
+            <div className="flex-1">
+              <div className="font-bold text-gray-700">Official NYS Sample Test</div>
+              <div className="text-xs text-gray-400 mt-1">surveygizmo.com · 75 questions · official source</div>
+            </div>
+            <span className="text-gray-300 text-lg">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Exam hub ──────────────────────────────────────────────────────────────
 function ExamHub({cat,onStudy,onBack}:{cat:Cat;onStudy:()=>void;onBack:()=>void}){
   const {lang}=useLang();
@@ -547,15 +968,19 @@ function LangBar(){
 
 // ── Home ──────────────────────────────────────────────────────────────────
 function HomeScreen(){
-  type S="home"|"hub"|"study";
+  type S="home"|"hub"|"study"|"interpreter";
   const {lang}=useLang();
   const t=(k:string)=>UI[lang]?.[k]||UI.en[k]||k;
   const [screen,setScreen]=useState<S>("home");
   const [active,setActive]=useState<Cat|null>(null);
-  function openHub(cat:Cat){setActive(cat);setScreen("hub");}
+  function openHub(cat:Cat){
+    setActive(cat);
+    setScreen(cat.id==="interpreter"?"interpreter":"hub");
+  }
   const fullCat=active?{...active,...(META[active.id]||{})}:null;
   if(screen==="hub"&&active)return <ExamHub cat={active} onStudy={()=>setScreen("study")} onBack={()=>setScreen("home")}/>;
   if(screen==="study"&&fullCat)return <StudyHub cat={fullCat as Cat&{color:string;bg:string}} onBack={()=>setScreen("hub")}/>;
+  if(screen==="interpreter"&&fullCat)return <InterpreterHub cat={fullCat as Cat&{color:string;bg:string}} onBack={()=>setScreen("home")}/>;
   const total=certData.categories.reduce((s,c)=>s+c.count,0);
   return(
     <div className="min-h-screen bg-gray-50">
