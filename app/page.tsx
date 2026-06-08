@@ -193,21 +193,18 @@ function LangBar({dark}:{dark?:boolean}){
   );
 }
 
-// ── Source badge ──────────────────────────────────────────────────────────────
+// ── Source badge — shows study source link without "official/unofficial" labels ──
 function SourceBadge({catId}:{catId:string}){
-  const t=useT();
   const src=SOURCE[catId];
   if(!src) return null;
   return(
-    <div className={`flex items-start gap-2 p-3 rounded-xl text-xs leading-relaxed ${src.official?"bg-green-50 border border-green-200":"bg-amber-50 border border-amber-200"}`}>
-      <span>{src.official?"✅":"⚠️"}</span>
+    <div className="flex items-start gap-2 p-3 rounded-xl text-xs leading-relaxed bg-blue-50 border border-blue-200">
+      <span>📚</span>
       <div>
-        <span className={`font-bold ${src.official?"text-green-800":"text-amber-800"}`}>
-          {src.official?t("officialSource"):t("practiceSource")}
-        </span>
-        {" — "}<a href={src.url} target="_blank" rel="noopener noreferrer"
-          className={`underline ${src.official?"text-green-700":"text-amber-700"}`}>{src.label}</a>
-        {src.note&&<p className="text-amber-700 mt-1">{src.note}</p>}
+        <span className="font-bold text-blue-800">Study material — </span>
+        <a href={src.url} target="_blank" rel="noopener noreferrer"
+          className="underline text-blue-700">{src.label}</a>
+        {src.note&&<p className="text-blue-700 mt-1">{src.note}</p>}
       </div>
     </div>
   );
@@ -528,7 +525,7 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
             {pass?t("bookNow"):t("practiceWith")}
           </a>}
           <button onClick={onBack} className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-600">{t("studyMore")}</button>
-          <p className="text-xs text-gray-400 mt-4">{t("practiceOnly")}</p>
+          <p className="text-xs text-gray-400 mt-4">Practice material — study at your own pace.</p>
         </div>
       </div>
     );
@@ -826,9 +823,6 @@ function HomeScreen(){
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-gray-900 text-sm">{cat.title}</span>
-                    {src&&<span className={`text-xs px-1.5 py-0.5 rounded font-bold ${src.official?"bg-green-100 text-green-700":"bg-amber-100 text-amber-700"}`}>
-                      {src.official?"✅ Official":"⚠️ Practice"}
-                    </span>}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5 truncate">{cat.description}</div>
                 </div>
