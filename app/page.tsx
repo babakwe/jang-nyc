@@ -1,6 +1,11 @@
 "use client";
 import { useState, useMemo, useRef, createContext, useContext, useEffect } from "react";
 import certData from "./data/certifications.json";
+import {
+  trackCertOpen, trackQuizStart, trackQuizAnswer,
+  trackQuizFinish, trackQuizExit, trackFlashcardOpen,
+  trackVocabOpen, trackLangSwitch,
+} from "../lib/analytics";
 
 // ── Language ──────────────────────────────────────────────────────────────────
 type Lang = "en"|"fr"|"es"|"pt";
@@ -208,7 +213,7 @@ function LangBar({dark}:{dark?:boolean}){
   return(
     <div className={`flex gap-1 flex-wrap px-4 py-2 ${dark?"bg-black/20":"bg-white border-b border-gray-100"}`}>
       {(Object.entries(LANG_META) as [Lang,{flag:string;label:string}][]).map(([code,m])=>(
-        <button key={code} onClick={()=>setLang(code)}
+        <button key={code} onClick={()=>{const prev=lang;setLang(code);if(prev!==code)trackLangSwitch(prev,code);}}
           className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${lang===code
             ?(dark?"bg-white text-gray-900":"bg-blue-900 text-white")
             :(dark?"text-white/60 hover:text-white":"text-gray-500 hover:bg-gray-100")}`}>
@@ -435,7 +440,17 @@ function Quiz({cat,diff,chapter,onBack}:{cat:Cat&{color:string;bg:string};diff:D
   const meta=META[cat.id];
   const _q=qs[idx];
   const q=_q?{..._q,...tQ(cat.id,_q._i,_q,lang)}:undefined;
-  function choose(i:number){if(picked!==null||!_q)return;setPicked(i);if(i===_q.answer)setScore(s=>s+1);}
+
+  // Track quiz finish when done becomes true
+  useEffect(()=>{if(done)trackQuizFinish(cat.id,score,qs.length);},[done]); // eslint-disable-line
+
+  function choose(i:number){
+    if(picked!==null||!_q)return;
+    const correct=i===_q.answer;
+    setPicked(i);
+    if(correct)setScore(s=>s+1);
+    trackQuizAnswer(cat.id, idx, correct);
+  }
   function next(){if(idx+1>=qs.length)setDone(true);else{setIdx(i=>i+1);setPicked(null);}}
   if(!qs.length)return(
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -472,7 +487,7 @@ function Quiz({cat,diff,chapter,onBack}:{cat:Cat&{color:string;bg:string};diff:D
   return(
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3" style={{backgroundColor:cat.color}}>
-        <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button>
+        <button onClick={()=>{if(!done)trackQuizExit(cat.id,idx,qs.length);onBack();}} className="text-white/80 font-bold text-lg">←</button>
         <div className="flex-1">
           <div className="text-white font-bold text-sm truncate">{chapter||cat.title}</div>
           <div className="text-white/70 text-xs">{["🟢","🟡","🔴"][["easy","medium","hard"].indexOf(diff)]} {idx+1}/{qs.length}</div>
@@ -537,7 +552,7 @@ function StudyHub({cat,hasVocab,onBack}:{cat:Cat&{color:string;bg:string};hasVoc
       </div>
       <div className="max-w-lg mx-auto p-4 pt-6 flex flex-col gap-3">
         {([["easy","🟢","easy","easyD"],["medium","🟡","medium","medD"],["hard","🔴","hard","hardD"]] as const).map(([d,e,lk,dk])=>(
-          <button key={d} onClick={()=>{setDiff(d);setScreen("quiz");}}
+          <button key={d} onClick={()=>{setDiff(d);setScreen("quiz");trackQuizStart(cat.id,chapter,d);}}
             className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-2 border-transparent hover:border-blue-200 flex items-center gap-4 active:scale-[0.99] transition-all">
             <span className="text-3xl">{e}</span>
             <div className="flex-1"><div className="font-bold text-gray-900">{t(lk)}</div>
@@ -563,7 +578,7 @@ function StudyHub({cat,hasVocab,onBack}:{cat:Cat&{color:string;bg:string};hasVoc
             <div className="flex-1 font-bold text-gray-800">{t("allDeck")} · {qs.length} {t("qs")}</div>
           </div>
           <div className="flex border-t border-gray-50">
-            <button onClick={()=>{setChapter(null);setScreen("flash_list");}}
+            <button onClick={()=>{setChapter(null);setScreen("flash_list");trackFlashcardOpen(cat.id,null);}}
               className="flex-1 py-2.5 text-xs font-bold hover:bg-gray-50 transition-colors" style={{color}}>
               📇 {t("allDeck")}
             </button>
@@ -583,7 +598,7 @@ function StudyHub({cat,hasVocab,onBack}:{cat:Cat&{color:string;bg:string};hasVoc
                 <div className="flex-1 font-semibold text-gray-800 text-sm">{ch}</div>
               </div>
               <div className="flex border-t border-gray-50">
-                <button onClick={()=>{setChapter(ch);setScreen("flash_list");}}
+                <button onClick={()=>{setChapter(ch);setScreen("flash_list");trackFlashcardOpen(cat.id,ch);}}
                   className="flex-1 py-2.5 text-xs font-bold hover:bg-gray-50 transition-colors" style={{color}}>
                   📇 Cards
                 </button>
@@ -615,7 +630,7 @@ function StudyHub({cat,hasVocab,onBack}:{cat:Cat&{color:string;bg:string};hasVoc
           ["idiom","🗣 Idiomatic Expressions",vocabCards.filter(c=>c.category==="idiom").length],
           ["legal","⚖️ Legal Terms",vocabCards.filter(c=>c.category==="legal").length]].map(([f,label,n])=>(
           Number(n)===0?null:
-          <button key={String(f)} onClick={()=>{setVocabFilter(f?String(f):null);setScreen("vocab_browse");}}
+          <button key={String(f)} onClick={()=>{setVocabFilter(f?String(f):null);setScreen("vocab_browse");trackVocabOpen(cat.id,f?String(f):null);}}
             className="w-full text-left bg-white rounded-2xl p-4 mb-2 shadow-sm border-l-4 hover:shadow-md active:scale-[0.99] transition-all flex items-center gap-4"
             style={{borderLeftColor:color}}>
             <div className="flex-1">
@@ -754,7 +769,7 @@ function HomeScreen(){
   const [screen,setScreen]=useState<S>("home");
   const [active,setActive]=useState<Cat|null>(null);
   const fullCat=active?{...active,...(META[active.id]||{})}:null;
-  function open(cat:Cat){setActive(cat);setScreen("hub");}
+  function open(cat:Cat){setActive(cat);setScreen("hub");trackCertOpen(cat.id);}
   if(screen==="hub"&&active)return<ExamHub cat={active} onStudy={()=>setScreen("study")} onBack={()=>setScreen("home")}/>;
   if(screen==="study"&&fullCat)return<StudyHub
     cat={fullCat as Cat&{color:string;bg:string}}
