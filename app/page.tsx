@@ -42,6 +42,7 @@ const SOURCE:Record<string,{label:string;url:string;official:boolean;note?:strin
   cna:        {label:"ATI TEAS / State CNA competency standards",url:"https://www.pearsonvue.com/us/en/nclex.html",official:false,note:"⚠️ Questions need verification against official Pearson VUE / state nursing board materials."},
   hha:        {label:"NYS DOH HHA training standards",url:"https://www.health.ny.gov/facilities/home_care/aide_training.htm",official:false,note:"⚠️ Questions need verification against official NYS DOH HHA curriculum."},
   teas:       {label:"ATI TEAS official practice",url:"https://www.atitesting.com/teas/study",official:false,note:"⚠️ Questions need verification against official ATI TEAS materials."},
+  food_protection:{label:"NYC DOHMH Food Protection Course (free online)",url:"https://www.nyc.gov/site/doh/business/health-academy/food-protection-online-free.page",official:true},
 };
 
 // ── Exam metadata ─────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ const META:Record<string,{fee:string;feeNote:string;where:string;when:string;sch
   dmv:{fee:"$80",feeNote:"Includes learner permit + first road test attempt",where:"Any NYC DMV office — appointments recommended",when:"DMV offices open Mon – Fri — book online at dmv.ny.gov",schedule:"Schedule at dmv.ny.gov or call (518) 486-9786",scheduleUrl:"https://dmv.ny.gov/office-visit/find-dmv-office-or-kiosk",studyUrl:"https://dmv.ny.gov/driver-license/get-driver-license-0",officialUrl:"https://dmv.ny.gov/learners-permit",renewNote:"Driver license — renew every 8 years (standard) or 5 years (enhanced)"},
   security:{fee:"$36 – $108",feeNote:"Unarmed: ~$36 · Armed: ~$108 (NYS Dept. of State)",where:"DCJS-approved training schools only",when:"Training schools set their own schedules",schedule:"Complete 8-hr pre-assignment training → apply through NYS Dept. of State",scheduleUrl:"https://www.dos.ny.gov/licensing/security_guard/index.html",studyUrl:"https://www.criminaljustice.ny.gov/ops/sgtraining/sgpquestion.htm",officialUrl:"https://www.dos.ny.gov/licensing/security_guard/index.html",renewNote:"Registration valid 2 years — DOS-2012 (unarmed) or DOS-1246 (armed)"},
   civics:{fee:"$725",feeNote:"N-400 Application for Naturalization filing fee",where:"USCIS field office — after application approval",when:"Scheduled by USCIS after N-400 review",schedule:"File N-400 → biometrics → interview → oath ceremony",scheduleUrl:"https://www.uscis.gov/citizenship/apply-for-citizenship",studyUrl:"https://www.uscis.gov/citizenship/find-study-materials-and-resources",officialUrl:"https://www.uscis.gov/citizenship",renewNote:"U.S. citizenship is permanent — no renewal required"},
+  food_protection:{fee:"$24",feeNote:"Exam fee · Online course is free · Classroom option: $16",where:"NYC Health Academy — Riverside Health Center, 160 West 100th St, Manhattan",when:"By appointment — register after completing the free online course",schedule:"Complete the free 15-lesson online course at nyc.gov, then register and pay $24 for the in-person final exam",scheduleUrl:"https://www.nyc.gov/site/doh/business/health-academy/food-protection-online-free.page",studyUrl:"https://www.nyc.gov/site/doh/business/health-academy/food-protection-online-free.page",officialUrl:"https://www.nyc.gov/site/doh/business/health-academy/food-protection-course.page",renewNote:"Certificate valid 5 years — renewal exam required"},
 };
 
 // ── Chapters per certification ─────────────────────────────────────────────────
@@ -66,6 +68,7 @@ const CHAPTERS:Record<string,string[]> = {
   dmv:     ["Traffic Laws","Road Signs & Signals","Right of Way","Driving Skills","Alcohol & Drugs"],
   security:["1 — Role of a Guard","2 — Legal Powers","3 — Emergencies","4 — Communications","5 — Access Control","6 — Ethics","7 — Reports","8 — Notes","9 — Patrol","NYS — Licensing"],
   civics:  ["Democracy Principles","System of Government","Rights & Responsibilities","Colonial & Independence","Civil War Era","Modern History","Geography & Symbols"],
+  food_protection:["Health Code & Introduction","Food Safety Fundamentals","Receiving Foods","Storage","Hazards","Food Allergies","Microbiology — Bacteria","Microorganisms","Foodborne Illnesses","Personal Hygiene","Food Preparation","Cooking Temperatures","Hot Holding, Cooling & Reheating","Cleaning & Sanitizing","HACCP","Pest Control"],
 };
 
 function chOf(id:string,i:number,total:number){
