@@ -34,26 +34,33 @@
  *   lang-switch         — from→to language
  */
 
-// Umami's global type
+// Umami + Google Analytics global types
 declare global {
   interface Window {
     umami?: {
       track: (eventName: string, data?: Record<string, string | number | boolean>) => void;
     };
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
-/** Fire a tracking event. Fails silently if Umami isn't loaded. */
+/** Fire a tracking event to BOTH Umami and Google Analytics. Fails silently if either is absent. */
 export function track(
   eventName: string,
   data?: Record<string, string | number | boolean>
 ): void {
+  if (typeof window === "undefined") return;
+  // Umami (hyphenated names ok)
   try {
-    if (typeof window !== "undefined" && window.umami) {
-      window.umami.track(eventName, data);
-    }
+    if (window.umami) window.umami.track(eventName, data);
   } catch {
     // Fail silently — analytics should never break the app
+  }
+  // Google Analytics 4 (event names use underscores by convention)
+  try {
+    if (window.gtag) window.gtag("event", eventName.replace(/-/g, "_"), data ?? {});
+  } catch {
+    // Fail silently
   }
 }
 

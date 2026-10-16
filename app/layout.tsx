@@ -8,6 +8,10 @@ import "./globals.css";
 const UMAMI_SCRIPT = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL ?? "https://cloud.umami.is/script.js";
 const UMAMI_ID     = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID ?? "c2abcd84-3463-44d8-9c5b-ebdc9503d865";
 
+// Google Analytics 4 — set NEXT_PUBLIC_GA_ID to your Measurement ID (e.g. "G-XXXXXXXXXX").
+// Runs ALONGSIDE Umami; both receive the same events (see lib/analytics.ts).
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -43,6 +47,18 @@ export default function RootLayout({
             data-website-id={UMAMI_ID}
             strategy="afterInteractive"
           />
+        )}
+        {/* Google Analytics 4 — only loads if NEXT_PUBLIC_GA_ID is set */}
+        {GA_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`}
+            </Script>
+          </>
         )}
       </body>
     </html>

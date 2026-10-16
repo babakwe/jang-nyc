@@ -24,7 +24,7 @@ function tQ(catId:string,idx:number,q:{q:string;choices:string[];exp:string},lan
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Q = {id:string;q:string;choices:string[];answer:number;exp:string;section?:string;difficulty?:string;passage?:string;vocab?:string;};
+type Q = {id:string;q:string;choices:string[];answer:number;exp:string;section?:string;difficulty?:string;chapter?:string;passage?:string;vocab?:string;source?:string;vocab_link?:string;derived_from?:string;_ch?:string;_i?:number;choiceNotes?:string[];cite?:string;};
 type VocabCard = {id:string;term:string;definition_en:string;definition_fr:string;example:string;category:string;};
 type Cat = typeof certData.categories[0];
 type Diff = "easy"|"medium"|"hard";
@@ -38,7 +38,7 @@ const SOURCE:Record<string,{label:string;url:string;official:boolean;note?:strin
   security:   {label:"NYS Security Guard Manual — DCJS / Security Guard Act 1992",url:"https://www.radianttraining.com/training/security_manual.pdf",official:true},
   dmv:        {label:"NYS Driver's Manual — NYS DMV",url:"https://dmv.ny.gov/driver-license/get-driver-license-0",official:true},
   civics:     {label:"USCIS 100 Civics Questions for Naturalization",url:"https://www.uscis.gov/citizenship/find-study-materials-and-resources",official:true},
-  fdny:       {label:"FDNY Certificate of Fitness Study Guides",url:"https://www1.nyc.gov/site/fdny/business/certificates-of-fitness/study-material.page",official:false,note:"⚠️ Questions need verification against official FDNY materials."},
+  fdny:       {label:"FDNY Certificate of Fitness Study Guides",url:"https://www.nyc.gov/site/fdny/business/certificates-of-fitness/study-material.page",official:false,note:"⚠️ Questions need verification against official FDNY materials."},
   cna:        {label:"ATI TEAS / State CNA competency standards",url:"https://www.pearsonvue.com/us/en/nclex.html",official:false,note:"⚠️ Questions need verification against official Pearson VUE / state nursing board materials."},
   hha:        {label:"NYS DOH HHA training standards",url:"https://www.health.ny.gov/facilities/home_care/aide_training.htm",official:false,note:"⚠️ Questions need verification against official NYS DOH HHA curriculum."},
   teas:       {label:"ATI TEAS official practice",url:"https://www.atitesting.com/teas/study",official:false,note:"⚠️ Questions need verification against official ATI TEAS materials."},
@@ -47,7 +47,7 @@ const SOURCE:Record<string,{label:string;url:string;official:boolean;note?:strin
 
 // ── Exam metadata ─────────────────────────────────────────────────────────────
 const META:Record<string,{fee:string;feeNote:string;where:string;when:string;schedule:string;scheduleUrl:string;studyUrl:string;officialUrl:string;renewNote?:string;}> = {
-  fdny:{fee:"$25 – $45",feeNote:"F-01: $25 · F-03: $35 · G-60: $45",where:"FDNY HQ — 9 MetroTech Center, Brooklyn",when:"Mon – Fri, 8 AM – 3 PM (walk-in)",schedule:"Walk-in, no appointment needed",scheduleUrl:"https://www1.nyc.gov/site/fdny/business/certificates-of-fitness/certificates-of-fitness.page",studyUrl:"https://www1.nyc.gov/site/fdny/business/certificates-of-fitness/study-material.page",officialUrl:"https://www1.nyc.gov/site/fdny/business/certificates-of-fitness/certificates-of-fitness.page",renewNote:"Certificate of Fitness expires — renewal exam required"},
+  fdny:{fee:"$25 – $45",feeNote:"F-01: $25 · F-03: $35 · G-60: $45",where:"FDNY HQ — 9 MetroTech Center, Brooklyn",when:"Mon – Fri, 8 AM – 3 PM (walk-in)",schedule:"Walk-in, no appointment needed",scheduleUrl:"https://www.nyc.gov/site/fdny/business/all-certifications/cof-online-scheduler.page",studyUrl:"https://www.nyc.gov/site/fdny/business/all-certifications/cof-online-scheduler.page",officialUrl:"https://www.nyc.gov/site/fdny/business/all-certifications/cof-online-scheduler.page",renewNote:"Certificate of Fitness expires — renewal exam required"},
   cna:{fee:"$180 – $220",feeNote:"Pearson VUE exam fee — many training programs cover it",where:"Pearson VUE testing centers across NYC",when:"Scheduled through Pearson VUE — multiple dates available",schedule:"Book at Pearson VUE online after completing your 75-hour training program",scheduleUrl:"https://www.pearsonvue.com/us/en/nclex.html",studyUrl:"https://www.ncsbn.org/nclex",officialUrl:"https://www.health.ny.gov/health_care/medicaid/",renewNote:"CNA registration — renew every 2 years with documented work hours"},
   hha:{fee:"$0 – $50",feeNote:"Usually covered by your 75-hour HHA training program",where:"Through your DCJS-approved HHA training program provider",when:"Scheduled after completing 75-hour training program",schedule:"Contact your training program to schedule the competency evaluation",scheduleUrl:"https://www.health.ny.gov/facilities/home_care/aide_training.htm",studyUrl:"https://www.health.ny.gov/facilities/home_care/",officialUrl:"https://www.health.ny.gov/facilities/home_care/aide_training.htm"},
   teas:{fee:"$115",feeNote:"ATI TEAS exam fee — check if your nursing school covers retakes",where:"Your nursing school or an ATI authorized testing center",when:"Multiple testing dates — check ATI's website",schedule:"Register at atitesting.com — select your school and a testing date",scheduleUrl:"https://www.atitesting.com/teas/register",studyUrl:"https://www.atitesting.com/teas/study",officialUrl:"https://www.atitesting.com/teas"},
@@ -59,12 +59,29 @@ const META:Record<string,{fee:string;feeNote:string;where:string;when:string;sch
 };
 
 // ── Chapters per certification ─────────────────────────────────────────────────
+// Current officeholders for the time-varying USCIS civics questions — UPDATE THESE as they change.
+// The official answer stays "answers will vary"; this panel just shows the learner the real current name.
+const CIVICS_CURRENT:{as_of:string;byId:Record<string,string>}={
+  as_of:"",   // e.g. "June 2026" — leave "" to hide the panel entirely
+  byId:{
+    civics_028:"",  // President of the United States now
+    civics_029:"",  // Vice President of the United States now
+    civics_040:"",  // Chief Justice of the United States now
+    civics_046:"",  // political party of the President now
+    civics_047:"",  // Speaker of the House now
+  },
+};
+
+// Official exam time limit (minutes) for the in-house timed practice test (built from the official
+// provided questions). FDNY Certificate of Fitness exam ≈ 60 min; others default to ~1.5 min/question.
+const EXAM_MIN:Record<string,number> = {fdny:60};
+
 const CHAPTERS:Record<string,string[]> = {
-  fdny:    ["Fire Guard Basics","Fire Watch Duties","Emergency Procedures","Fire Prevention","Building Systems"],
+  fdny:    ["F-01 — Fire Guard / Fire Watch","F-02 — Fire Guard for Shelter","F-03 — Place of Assembly (Site-Specific)","F-04 — Place of Assembly (Citywide)","F-07 — Pyrotechnic Technician","F-53 — Emergency One-Way Voice Alarm","F-80 — Coordinator of Fire Safety, Shelters","F-89 — Fire & Life Safety Director","S-12 — Supervision of Sprinkler System","S-13 — Supervision of Standpipe System","S-14 — Supervision of Foam-Water Sprinkler","S-95 — Supervision of Fire Alarm Systems","G-44 — Storage of Flammable Liquids","G-60 — Supervision of Fuel Oil Burner","P-99 — Supervision of Portable Fueled Equipment"],
   cna:     ["Infection Control","Safety & Emergency","Basic Nursing Care","Mental Health","Patient Rights"],
   hha:     ["Personal Care","Safety & Environment","Communication","Patient Rights","Nutrition"],
   teas:    ["Reading Comprehension","Math & Data","Science","English Language"],
-  interpreter:["A — Sentence Completion","B — Paragraph Comprehension","C — Grammar & Usage","D — Vocabulary Synonyms","E — Vocabulary Antonyms","F — Idiomatic Expressions","G — Legal Terminology"],
+  interpreter:["A — Sentence Completion","B — Paragraph Comprehension","C — Grammar & Usage","D — Vocabulary Synonyms","E — Vocabulary Antonyms","F — Idiomatic Expressions","G — Legal Terminology","Court Structure","Immigration Court","Interpreter Ethics","Legal Terminology","NYC & Federal Law"],
   dmv:     ["Traffic Laws","Road Signs & Signals","Right of Way","Driving Skills","Alcohol & Drugs"],
   security:["1 — Role of a Guard","2 — Legal Powers","3 — Emergencies","4 — Communications","5 — Access Control","6 — Ethics","7 — Reports","8 — Notes","9 — Patrol","NYS — Licensing"],
   civics:  ["Democracy Principles","System of Government","Rights & Responsibilities","Colonial & Independence","Civil War Era","Modern History","Geography & Symbols"],
@@ -74,6 +91,14 @@ const CHAPTERS:Record<string,string[]> = {
 function chOf(id:string,i:number,total:number){
   const chs=CHAPTERS[id]||["General"];
   return chs[Math.min(Math.floor((i/total)*chs.length),chs.length-1)];
+}
+
+// Map a raw section code (A..G, 1..9, NYS, "") to its official display label.
+// CHAPTERS already holds "CODE — Official Name" for coded certs (interpreter, security).
+function sectionLabel(catId:string,code:string|null|undefined):string{
+  if(!code) return "General & Mixed Topics";
+  const hit=(CHAPTERS[catId]||[]).find(c=>c.split("—")[0].trim()===code.trim());
+  return hit||code;
 }
 
 // ── Subcert helpers ───────────────────────────────────────────────────────────
@@ -88,14 +113,19 @@ function getSubcertQs(catId:string,subcert:string):Q[]{
   if(hasSec){const by=qs.filter(q=>q.section===subcert);if(by.length>0)return by;}
   return qs.filter((_,i)=>chOf(catId,i,qs.length)===subcert);
 }
-function getChaptersForSubcert(catId:string,subcertQs:Q[],allQs:Q[]):{id:string;label:string;count:number}[]{
+// A subcert (e.g. FDNY "F-02") is already the finest section, so its flashcards group by
+// the REAL chapter of the official study material each question was drawn from (q.chapter) —
+// not the global positional chOf (which leaked other sections' labels) and not difficulty
+// (which isn't a chapter at all — that bug also broke the Quiz chapter filter downstream,
+// since Quiz matches on the real _ch/chapter, never on an "easy"/"medium"/"hard" string).
+// If a subcert has no per-question chapter tags yet, return [] — a single "All questions"
+// deck is the honest fallback, not a fabricated grouping.
+function getChaptersForSubcert(_catId:string,subcertQs:Q[],_allQs:Q[]):{id:string;label:string;count:number}[]{
   const map:Record<string,number>={};
-  subcertQs.forEach(q=>{
-    const i=allQs.indexOf(q);
-    const ch=chOf(catId,i<0?0:i,allQs.length);
-    map[ch]=(map[ch]||0)+1;
-  });
-  return Object.entries(map).map(([id,count])=>({id,label:id,count}));
+  subcertQs.forEach(q=>{if(q.chapter)map[q.chapter]=(map[q.chapter]||0)+1;});
+  const chapterNum=(label:string)=>{const m=label.match(/^(\d+)\./);return m?parseInt(m[1],10):999;};
+  return Object.keys(map).sort((a,b)=>chapterNum(a)-chapterNum(b))
+    .map(ch=>({id:ch,label:ch.replace(/^\d+\.\s*/,""),count:map[ch]}));
 }
 
 // ── UI strings ────────────────────────────────────────────────────────────────
@@ -113,7 +143,7 @@ const UI:Record<Lang,Record<string,string>> = {
     easyD:"Foundations — start here",medD:"Core material",hardD:"Advanced — exam ready",ascD:"Easy → Medium → Hard (all questions)",
     tapFlip:"Tap card to flip",swipeHint:"← swipe or tap arrows →",
     gotIt:"✓ Know it",again:"↺ Review",done:"Done!",restart:"Restart",back:"← Back",
-    next:"Next →",results:"See Results",correct:"✓ Correct",wrong:"✗ Incorrect",why:"Why",
+    next:"Next →",results:"See Results",retakeMissed:"Retake the {n} you missed",correct:"✓ Correct",wrong:"✗ Incorrect",why:"Why",
     pass:"Passed ✓",fail:"Not yet — keep studying",bookNow:"📅 Schedule your exam →",
     studyMore:"← Study more",practiceOnly:"Practice only — always verify with the official source before your exam.",
     readFirst:"Read the passage, then answer",topics:"☰ Topics",
@@ -132,7 +162,7 @@ const UI:Record<Lang,Record<string,string>> = {
     easyD:"Bases — commencez ici",medD:"Matière principale",hardD:"Avancé",ascD:"Facile → Moyen → Difficile",
     tapFlip:"Appuyez pour retourner",swipeHint:"← balayez ou flèches →",
     gotIt:"✓ Je sais",again:"↺ Revoir",done:"Terminé !",restart:"Recommencer",back:"← Retour",
-    next:"Suivant →",results:"Voir les résultats",correct:"✓ Correct",wrong:"✗ Incorrect",why:"Pourquoi",
+    next:"Suivant →",results:"Voir les résultats",retakeMissed:"Refaire les {n} manquées",correct:"✓ Correct",wrong:"✗ Incorrect",why:"Pourquoi",
     pass:"Réussi ✓",fail:"Pas encore — continuez !",bookNow:"📅 Réserver votre examen →",
     studyMore:"← Étudier encore",practiceOnly:"Entraînement uniquement — vérifiez toujours avec la source officielle.",
     readFirst:"Lisez le passage, puis répondez",topics:"☰ Sujets",
@@ -151,7 +181,7 @@ const UI:Record<Lang,Record<string,string>> = {
     easyD:"Fundamentos — empiece aquí",medD:"Material principal",hardD:"Avanzado",ascD:"Fácil → Medio → Difícil",
     tapFlip:"Toque para voltear",swipeHint:"← deslice o use flechas →",
     gotIt:"✓ Lo sé",again:"↺ Repasar",done:"¡Terminado!",restart:"Reiniciar",back:"← Atrás",
-    next:"Siguiente →",results:"Ver resultados",correct:"✓ Correcto",wrong:"✗ Incorrecto",why:"Por qué",
+    next:"Siguiente →",results:"Ver resultados",retakeMissed:"Repetir las {n} falladas",correct:"✓ Correcto",wrong:"✗ Incorrecto",why:"Por qué",
     pass:"Aprobado ✓",fail:"Siga estudiando",bookNow:"📅 Reservar examen →",
     studyMore:"← Estudiar más",practiceOnly:"Solo práctica — verifique siempre con la fuente oficial.",
     readFirst:"Lea el texto y responda",topics:"☰ Temas",
@@ -170,7 +200,7 @@ const UI:Record<Lang,Record<string,string>> = {
     easyD:"Fundamentos — comece aqui",medD:"Material principal",hardD:"Avançado",ascD:"Fácil → Médio → Difícil",
     tapFlip:"Toque para virar",swipeHint:"← deslize ou use setas →",
     gotIt:"✓ Sei",again:"↺ Revisar",done:"Concluído!",restart:"Reiniciar",back:"← Voltar",
-    next:"Próximo →",results:"Ver resultados",correct:"✓ Correto",wrong:"✗ Incorreto",why:"Por que",
+    next:"Próximo →",results:"Ver resultados",retakeMissed:"Refazer as {n} que errou",correct:"✓ Correto",wrong:"✗ Incorreto",why:"Por que",
     pass:"Aprovado ✓",fail:"Continue estudando",bookNow:"📅 Agendar exame →",
     studyMore:"← Estudar mais",practiceOnly:"Apenas prática — verifique sempre com a fonte oficial.",
     readFirst:"Leia o texto e responda",topics:"☰ Tópicos",
@@ -204,9 +234,8 @@ function SourceBadge({catId}:{catId:string}){
     <div className="flex items-start gap-2 p-3 rounded-xl text-xs leading-relaxed bg-blue-50 border border-blue-200">
       <span>📚</span>
       <div>
-        <span className="font-bold text-blue-800">Study material — </span>
-        <a href={src.url} target="_blank" rel="noopener noreferrer"
-          className="underline text-blue-700">{src.label}</a>
+        <span className="font-bold text-blue-800">Source — </span>
+        <span className="text-blue-700">{src.label}</span>
         {src.note&&<p className="text-blue-700 mt-1">{src.note}</p>}
       </div>
     </div>
@@ -277,7 +306,7 @@ function FlashDeck({cards,startIdx,onBack,topRight}:{
 }
 
 // ── Vocab browser ─────────────────────────────────────────────────────────────
-function VocabBrowser({catId,filter,color,onBack}:{catId:string;filter:string|null;color:string;onBack:()=>void}){
+function VocabBrowser({catId,filter,color,onBack,onHome}:{catId:string;filter:string|null;color:string;onBack:()=>void;onHome:()=>void}){
   const {lang}=useLang();
   const cards=(VOCAB[catId]||[]).filter(c=>!filter||c.category===filter);
   const [startIdx,setStartIdx]=useState<number|null>(null);
@@ -288,8 +317,8 @@ function VocabBrowser({catId,filter,color,onBack}:{catId:string;filter:string|nu
   const categoryLabel=(cat:string)=>({vocabulary:"📖 Vocabulary",idiom:"🗣 Idioms",legal:"⚖️ Legal"})[cat]||cat;
   return(
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-500 font-bold text-lg">←</button>
+      <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 relative">
+        <button onClick={onBack} className="text-gray-500 font-bold text-lg">←</button><button onClick={onHome} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-gray-500 font-bold text-2xl">🏠</button>
         <div className="flex-1 font-bold text-gray-900 text-sm">{filter?categoryLabel(filter):"All vocabulary"} · {cards.length} cards</div>
       </div>
       <div className="max-w-lg mx-auto p-4">
@@ -319,10 +348,11 @@ function VocabBrowser({catId,filter,color,onBack}:{catId:string;filter:string|nu
 }
 
 // ── Flashcard category list + deck with sidebar drawer ────────────────────────
-function FlashCategoryView({cat,subcert,onBack}:{
+function FlashCategoryView({cat,subcert,onBack,onHome}:{
   cat:Cat&{color:string;bg:string};
   subcert:string|null;
   onBack:()=>void;
+  onHome:()=>void;
 }){
   const {lang}=useLang();
   const t=useT();
@@ -336,7 +366,7 @@ function FlashCategoryView({cat,subcert,onBack}:{
 
   const deckCards=useMemo(()=>{
     const pool=activeCh
-      ?subcertQs.filter(q=>chOf(cat.id,allQs.indexOf(q)<0?0:allQs.indexOf(q),allQs.length)===activeCh)
+      ?subcertQs.filter(q=>q.chapter===activeCh)
       :subcertQs;
     return pool.map(q=>{
       const i=allQs.indexOf(q);
@@ -351,9 +381,11 @@ function FlashCategoryView({cat,subcert,onBack}:{
   if(activeCh===null&&!drawerOpen){
     return(
       <div className="min-h-screen bg-gray-50">
-        <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3" style={{backgroundColor:cat.color}}>
-          <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button>
-          <div className="flex-1 text-white font-bold text-sm truncate">{subcert||cat.title} — {t("flashcards")}</div>
+        <div className="sticky top-0 z-10 px-4 py-3 relative" style={{backgroundColor:cat.color}}>
+          <div className="flex items-center gap-3 relative mb-1">
+            <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button><button onClick={onHome} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-white/90 font-bold text-2xl">🏠</button>
+          </div>
+          <div className="text-white font-bold text-sm truncate">{(subcert?sectionLabel(cat.id,subcert):cat.title)} — {t("flashcards")}</div>
         </div>
         <div className="max-w-lg mx-auto p-4">
           <p className="text-xs text-gray-400 mb-3 px-1">Select a topic — topics stay accessible while you study</p>
@@ -447,17 +479,20 @@ function FlashCategoryView({cat,subcert,onBack}:{
 }
 
 // ── Quiz ──────────────────────────────────────────────────────────────────────
-function Quiz({cat,diff,chapter,subcert,onBack}:{
+function Quiz({cat,diff,chapter,subcert,onBack,onHome,timed=false,customMinutes=null}:{
   cat:Cat&{color:string;bg:string};
   diff:Diff|"ascending";
   chapter:string|null;
   subcert:string|null;
   onBack:()=>void;
+  onHome:()=>void;
+  timed?:boolean;
+  customMinutes?:number|null;   // user-picked time limit for a non-official practice run (optional)
 }){
   const {lang}=useLang();
   const t=useT();
   const allQs=ALL[cat.id]||[];
-  const qs=useMemo(()=>{
+  const baseQs=useMemo(()=>{
     let pool=allQs.map((q,i)=>({...q,_i:i,_ch:chOf(cat.id,i,allQs.length)}));
     // Filter to subcert
     if(subcert){
@@ -465,8 +500,16 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
       if(hasSec) pool=pool.filter(q=>q.section===subcert);
       else pool=pool.filter(q=>q._ch===subcert);
     }
-    // Filter to chapter
-    if(chapter) pool=pool.filter(q=>q._ch===chapter);
+    // Filter to chapter — prefer the REAL per-question chapter tag (q.chapter) when the
+    // source material has been mapped; fall back to the positional estimate (q._ch) for
+    // certs that don't have real chapter tags yet.
+    if(chapter) pool=pool.filter(q=>(q.chapter??q._ch)===chapter);
+    // TIMED OFFICIAL practice test: official questions only, exam-style (no difficulty filter, no vocab)
+    if(timed){
+      const off=pool.filter(q=>q.source!=="vocab");
+      const sh=<T,>(a:T[])=>{const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;};
+      return sh(off).slice(0,Math.min(off.length,25));
+    }
     // Apply difficulty
     if(diff==="ascending"){
       const order:Record<string,number>={easy:0,medium:1,hard:2};
@@ -481,16 +524,53 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
       if(hard.length>=5) pool=hard;
       else pool=pool.slice(-Math.min(15,pool.length));
     }
-    return diff==="ascending"?pool:pool.slice(0,15);
-  },[allQs,cat.id,diff,chapter,subcert]);
+    // Practice tests stay OFFICIAL-HEAVY: ≥50% official questions (vocab/generated supplement
+    // within the same tier). The user must benefit on the real exam — we don't pad with ours.
+    const shuffle=<T,>(a:T[])=>{const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;};
+    const isVocab=(q:Q)=>q.source==="vocab";
+    // Never serve two questions about the SAME idiom/term/concept in one quiz.
+    const conceptKey=(q:Q)=>{
+      if(q.vocab_link) return q.vocab_link.toLowerCase().trim();
+      const m=q.q.match(/[‘'"]([^‘’'"]+)[’'"]/);          // quoted idiom/term in the stem
+      if(m) return m[1].toLowerCase().trim();
+      return (q.choices[q.answer]||q.q).toLowerCase().trim();
+    };
+    const dedupe=(arr:Q[])=>{const seen=new Set<string>();return arr.filter(q=>{const k=conceptKey(q);if(seen.has(k))return false;seen.add(k);return true;});};
+    if(diff==="ascending"){
+      return dedupe(pool);                                 // keep ascending tiers, no concept repeats
+    }
+    const SIZE=15;
+    const official=dedupe(pool.filter(q=>!isVocab(q)));
+    const usedKeys=new Set(official.map(conceptKey));
+    const supp=dedupe(pool.filter(isVocab)).filter(q=>!usedKeys.has(conceptKey(q)));  // vocab can't echo an official
+    const minOfficial=Math.ceil(SIZE*0.5);                 // ≥50% official
+    const nOff=Math.min(official.length, Math.max(minOfficial, SIZE-supp.length));
+    const chosen=[...shuffle(official).slice(0,nOff), ...shuffle(supp).slice(0,SIZE-nOff)];
+    return shuffle(chosen).slice(0,SIZE);
+  },[allQs,cat.id,diff,chapter,subcert,timed]);
 
   const [idx,setIdx]=useState(0);
   const [picked,setPicked]=useState<number|null>(null);
   const [score,setScore]=useState(0);
   const [done,setDone]=useState(false);
+  const [wrong,setWrong]=useState<Q[]>([]);          // questions missed this run
+  const [override,setOverride]=useState<Q[]|null>(null);  // set when retaking only the missed ones
+  const [review,setReview]=useState(false);          // show the flashcards for missed Qs before retake
+  const qs=override??baseQs;
+  const [elapsed,setElapsed]=useState(0);
+  const isTimed=timed||customMinutes!==null;   // official exam OR a user-picked custom time limit
+  const budget=(customMinutes??EXAM_MIN[cat.id]??Math.ceil(baseQs.length*1.5))*60;
+  useEffect(()=>{                              // counts UP; NO auto-submit — the user keeps their time
+    if(!isTimed||done) return;
+    const tm=setTimeout(()=>setElapsed(s=>s+1),1000);
+    return ()=>clearTimeout(tm);
+  },[isTimed,done,elapsed]); // eslint-disable-line
+  // adaptive pace = remaining budget ÷ remaining questions: dwell on one and the avg for the rest
+  // drops; answer quickly and it rises. A gentle guide, not a cutoff.
+  const avgPerQ=Math.max(0,Math.round((budget-elapsed)/Math.max(1,qs.length-idx)));
   const meta=META[cat.id];
   const _q=qs[idx];
-  const q=_q?{..._q,...tQ(cat.id,_q._i,_q,lang)}:undefined;
+  const q=_q?{..._q,...tQ(cat.id,_q._i??0,_q,lang)}:undefined;
 
   useEffect(()=>{if(done)trackQuizFinish(cat.id,score,qs.length);},[done]); // eslint-disable-line
 
@@ -499,6 +579,7 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
     const correct=i===_q.answer;
     setPicked(i);
     if(correct)setScore(s=>s+1);
+    else setWrong(w=>w.some(x=>x.id===_q.id)?w:[...w,_q]);   // collect the missed ones
     trackQuizAnswer(cat.id,idx,correct);
   }
   function next(){if(idx+1>=qs.length)setDone(true);else{setIdx(i=>i+1);setPicked(null);}}
@@ -522,13 +603,32 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
           <div className="h-3 bg-gray-100 rounded-full mb-6 overflow-hidden">
             <div className="h-full rounded-full" style={{width:`${pct}%`,backgroundColor:pass?"#16a34a":cat.color}}/>
           </div>
-          {meta&&<a href={pass?meta.scheduleUrl:meta.studyUrl} target="_blank" rel="noopener noreferrer"
-            className="block w-full py-3 rounded-xl text-white font-bold text-center mb-3 hover:opacity-90"
-            style={{backgroundColor:cat.color}}>
-            {pass?t("bookNow"):t("practiceWith")}
+          {/* Missed → review the flashcards FIRST, then retake (in-house, no external links) */}
+          {wrong.length>0&&<>
+            <button onClick={()=>setReview(r=>!r)}
+              className="block w-full py-3 rounded-xl font-bold mb-3 border-2 hover:opacity-90" style={{borderColor:cat.color,color:cat.color}}>
+              📇 {review?"Hide":"Review"} {wrong.length} flashcard{wrong.length>1?"s":""} for what you missed
+            </button>
+            {review&&<div className="text-left max-h-72 overflow-auto mb-3 flex flex-col gap-2">
+              {wrong.map((w,i)=>{const tw=tQ(cat.id,w._i??0,w,lang);return(
+                <div key={i} className="rounded-xl border border-gray-200 p-3">
+                  {(w.chapter||w._ch)&&<div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{color:cat.color}}>{(w.chapter||w._ch||"").replace(/^\d+\.\s*/,"")}</div>}
+                  <div className="font-bold text-gray-900 text-sm mb-1">{tw.q}</div>
+                  <div className="text-sm font-semibold" style={{color:cat.color}}>✓ {tw.choices[w.answer]}</div>
+                  {tw.exp&&<div className="text-xs text-gray-500 mt-1 leading-snug">{tw.exp}</div>}
+                </div>);})}
+            </div>}
+            <button onClick={()=>{setOverride([...wrong]);setReview(false);setWrong([]);setIdx(0);setPicked(null);setScore(0);setDone(false);}}
+              className="block w-full py-3 rounded-xl text-white font-bold mb-3 hover:opacity-90" style={{backgroundColor:cat.color}}>
+              🔁 {t("retakeMissed").replace("{n}",String(wrong.length))}
+            </button>
+          </>}
+          {pass&&meta?.scheduleUrl&&<a href={meta.scheduleUrl} target="_blank" rel="noopener noreferrer"
+            className="block w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-600 text-center mb-3 hover:bg-gray-50">
+            {t("bookNow")}
           </a>}
           <button onClick={onBack} className="w-full py-3 rounded-xl border border-gray-200 font-bold text-gray-600">{t("studyMore")}</button>
-          <p className="text-xs text-gray-400 mt-4">Practice material — study at your own pace.</p>
+          <p className="text-xs text-gray-400 mt-4">In-house practice — official material only.</p>
         </div>
       </div>
     );
@@ -538,13 +638,15 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
   const diffLabel=diff==="ascending"?"📈":diff==="easy"?"🟢":diff==="medium"?"🟡":"🔴";
   return(
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3" style={{backgroundColor:cat.color}}>
-        <button onClick={()=>{if(!done)trackQuizExit(cat.id,idx,qs.length);onBack();}} className="text-white/80 font-bold text-lg">←</button>
-        <div className="flex-1">
-          <div className="text-white font-bold text-sm truncate">{chapter||subcert||cat.title}</div>
-          <div className="text-white/70 text-xs">{diffLabel} {idx+1}/{qs.length}</div>
+      <div className="sticky top-0 z-10 px-4 py-3 relative" style={{backgroundColor:cat.color}}>
+        <div className="flex items-center gap-3 relative mb-1">
+          <button onClick={()=>{if(!done)trackQuizExit(cat.id,idx,qs.length);onBack();}} className="text-white/80 font-bold text-lg">←</button>
+          <button onClick={()=>{if(!done)trackQuizExit(cat.id,idx,qs.length);onHome();}} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-white/90 font-bold text-2xl">🏠</button>
+          <div className="flex-1"/>
+          <div className="text-white font-bold flex items-center gap-2">{isTimed&&<span title="Avg time left per remaining question — drops if you dwell, rises if you're quick" className={avgPerQ<20?"text-red-200":"text-white/90"}>⏱ ~{Math.floor(avgPerQ/60)}:{String(avgPerQ%60).padStart(2,"0")}/q</span>}<span>{score}/{idx+(picked!==null?1:0)}</span></div>
         </div>
-        <div className="text-white font-bold">{score}/{idx+(picked!==null?1:0)}</div>
+        <div className="text-white font-bold text-sm truncate">{chapter||(subcert?sectionLabel(cat.id,subcert):cat.title)}</div>
+        <div className="text-white/70 text-xs">{diffLabel} {idx+1}/{qs.length}</div>
       </div>
       <div className="h-1 bg-gray-100">
         <div className="h-full transition-all" style={{width:`${((idx+(picked!==null?1:0))/qs.length)*100}%`,backgroundColor:cat.color}}/>
@@ -569,10 +671,24 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
             </button>;
           })}
         </div>
+        {/* Every option teaches: if the user picked a WRONG answer that carries its own note, teach that one too */}
+        {picked!==null&&picked!==_q.answer&&_q.choiceNotes?.[picked]&&(
+          <div className="p-4 rounded-xl bg-blue-50 border-l-4 border-blue-400 mb-3">
+            <p className="text-xs font-bold text-blue-700 mb-1">You chose “{_q.choices[picked]}” — learn this too</p>
+            <p className="text-sm text-blue-900 leading-relaxed">{_q.choiceNotes[picked]}</p>
+          </div>
+        )}
         {picked!==null&&q.exp&&<div className="p-4 rounded-xl bg-amber-50 border-l-4 border-amber-400 mb-4">
           <p className="text-xs font-bold text-amber-700 mb-1">{picked===_q.answer?t("correct"):t("wrong")} — {t("why")}</p>
           <p className="text-sm text-amber-900 leading-relaxed">{q.exp}</p>
+          {_q.cite&&<p className="text-xs text-amber-700/80 mt-2 italic">📖 {_q.cite}</p>}
         </div>}
+        {picked!==null&&cat.id==="civics"&&CIVICS_CURRENT.as_of&&CIVICS_CURRENT.byId[_q.id||""]&&(
+          <div className="p-4 rounded-xl bg-indigo-50 border-l-4 border-indigo-400 mb-4">
+            <p className="text-xs font-bold text-indigo-700 mb-1">📌 Current answer (as of {CIVICS_CURRENT.as_of})</p>
+            <p className="text-sm text-indigo-900 leading-relaxed">{CIVICS_CURRENT.byId[_q.id||""]}</p>
+          </div>
+        )}
         {picked!==null&&<button onClick={next} className="w-full py-4 rounded-xl font-black text-white hover:opacity-90" style={{backgroundColor:cat.color}}>
           {idx+1<qs.length?t("next"):t("results")}
         </button>}
@@ -582,28 +698,47 @@ function Quiz({cat,diff,chapter,subcert,onBack}:{
 }
 
 // ── Difficulty selector ───────────────────────────────────────────────────────
-function DiffScreen({cat,chapter,subcert,onPick,onBack}:{
+function DiffScreen({cat,chapter,subcert,onPick,onBack,onHome}:{
   cat:Cat&{color:string;bg:string};
   chapter:string|null;
   subcert:string|null;
-  onPick:(d:Diff|"ascending")=>void;
+  onPick:(d:Diff|"ascending",minutes:number|null)=>void;
   onBack:()=>void;
+  onHome:()=>void;
 }){
   const t=useT();
+  // Optional — pick a time limit too. Default "No time limit" so this stays low-pressure;
+  // difficulty itself is a secondary/optional tool, not the headline feature of the app.
+  const [minutes,setMinutes]=useState<number|null>(null);
   return(
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 px-4 py-3 flex items-center gap-3" style={{backgroundColor:cat.color}}>
-        <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button>
-        <div className="text-white font-bold truncate">{chapter||subcert||cat.title} · {t("diffTitle")}</div>
+      <div className="sticky top-0 px-4 py-3 relative" style={{backgroundColor:cat.color}}>
+        <div className="flex items-center gap-3 relative mb-1">
+          <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button><button onClick={onHome} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-white/90 font-bold text-2xl">🏠</button>
+        </div>
+        <div className="text-white font-bold truncate">{chapter||(subcert?sectionLabel(cat.id,subcert):cat.title)} · {t("diffTitle")}</div>
       </div>
       <div className="max-w-lg mx-auto p-4 pt-6 flex flex-col gap-3">
+        <div className="mb-1">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2 px-1">Optional — set a time limit</div>
+          <div className="flex flex-wrap gap-2">
+            {[null,10,20,30,45,60].map(m=>(
+              <button key={String(m)} onClick={()=>setMinutes(m)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${minutes===m
+                  ?"text-white":"bg-white text-gray-500 border border-gray-200"}`}
+                style={minutes===m?{backgroundColor:cat.color}:{}}>
+                {m===null?"No limit":`${m} min`}
+              </button>
+            ))}
+          </div>
+        </div>
         {([
           ["easy","🟢","easy","easyD"],
           ["medium","🟡","medium","medD"],
           ["hard","🔴","hard","hardD"],
           ["ascending","📈","ascending","ascD"],
         ] as const).map(([d,e,lk,dk])=>(
-          <button key={d} onClick={()=>{trackQuizStart(cat.id,chapter||subcert,d==="ascending"?"ascending":d);onPick(d);}}
+          <button key={d} onClick={()=>{trackQuizStart(cat.id,chapter||subcert,d==="ascending"?"ascending":d);onPick(d,minutes);}}
             className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border-2 border-transparent hover:border-blue-200 flex items-center gap-4 active:scale-[0.99] transition-all">
             <span className="text-3xl">{e}</span>
             <div className="flex-1">
@@ -618,17 +753,19 @@ function DiffScreen({cat,chapter,subcert,onPick,onBack}:{
 }
 
 // ── Vocab hub (for court interpreter) ────────────────────────────────────────
-function VocabHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void}){
+function VocabHub({cat,onBack,onHome}:{cat:Cat&{color:string;bg:string};onBack:()=>void;onHome:()=>void}){
   const t=useT();
   const {lang}=useLang();
   const vocabCards=VOCAB[cat.id]||[];
   const [filter,setFilter]=useState<string|null>(null);
   const [browsing,setBrowsing]=useState(false);
-  if(browsing) return<VocabBrowser catId={cat.id} filter={filter} color={cat.color} onBack={()=>setBrowsing(false)}/>;
+  if(browsing) return<VocabBrowser catId={cat.id} filter={filter} color={cat.color} onHome={onHome} onBack={()=>setBrowsing(false)}/>;
   return(
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 px-4 py-3 flex items-center gap-3" style={{backgroundColor:cat.color}}>
-        <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button>
+      <div className="sticky top-0 px-4 py-3 relative" style={{backgroundColor:cat.color}}>
+        <div className="flex items-center gap-3 relative mb-1">
+          <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button><button onClick={onHome} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-white/90 font-bold text-2xl">🏠</button>
+        </div>
         <div className="text-white font-bold">📇 Vocabulary Cards</div>
       </div>
       <div className="max-w-lg mx-auto p-4">
@@ -653,22 +790,71 @@ function VocabHub({cat,onBack}:{cat:Cat&{color:string;bg:string};onBack:()=>void
   );
 }
 
+// ── Info-only stack (e.g. NY ID & Documents — no exam) ──────────────────────────
+type InfoItem={name:string;emoji?:string;cost?:string;who?:string;status_required?:boolean;docs?:string;where?:string;url?:string;note?:string;};
+function InfoView({cat,onBack,onHome}:{cat:Cat&{color:string;bg:string};onBack:()=>void;onHome:()=>void;}){
+  const items=((certData as {info?:Record<string,InfoItem[]>}).info?.[cat.id])||[];
+  return(
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 z-10 px-4 py-3 relative" style={{backgroundColor:cat.color}}>
+        <div className="flex items-center gap-3 relative mb-1">
+          <button onClick={onBack} className="text-white/80 font-bold text-lg">←</button><button onClick={onHome} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-white/90 font-bold text-2xl">🏠</button>
+        </div>
+        <div className="text-white font-bold text-sm truncate">{cat.emoji} {cat.title}</div>
+      </div>
+      <div className="max-w-2xl mx-auto p-4">
+        <p className="text-xs text-gray-500 mb-3 px-1">{cat.description}</p>
+        <div className="flex flex-col gap-3">
+          {items.map((it,i)=>(
+            <div key={i} className="bg-white rounded-2xl shadow-sm border-l-4 p-4" style={{borderLeftColor:cat.color}}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">{it.emoji||"🪪"}</span>
+                <div className="font-bold text-gray-900 leading-tight">{it.name}</div>
+              </div>
+              <span className={"inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-2 "+(it.status_required?"bg-amber-100 text-amber-800":"bg-green-100 text-green-800")}>
+                {it.status_required?"Requires lawful immigration status":"Available regardless of immigration status"}
+              </span>
+              <dl className="text-sm text-gray-700 space-y-1.5">
+                {it.cost&&<div><dt className="inline font-semibold">💵 Cost: </dt><dd className="inline">{it.cost}</dd></div>}
+                {it.who&&<div><dt className="inline font-semibold">👤 Who: </dt><dd className="inline">{it.who}</dd></div>}
+                {it.docs&&<div><dt className="inline font-semibold">📄 Documents: </dt><dd className="inline">{it.docs}</dd></div>}
+                {it.where&&<div><dt className="inline font-semibold">📍 Where: </dt><dd className="inline">{it.where}</dd></div>}
+                {it.note&&<div className="text-xs text-gray-500 pt-1">ℹ️ {it.note}</div>}
+              </dl>
+              {it.url&&<a href={it.url} target="_blank" rel="noopener noreferrer"
+                className="mt-3 inline-block text-sm font-semibold underline" style={{color:cat.color}}>
+                Apply / make an appointment →</a>}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400 text-center mt-5 leading-relaxed">Informational only — always confirm current fees and documents on the official site.</p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main app ──────────────────────────────────────────────────────────────────
 function HomeScreen(){
   const t=useT();
-  type S="home"|"subcerts"|"study_mode"|"flash"|"diff"|"quiz"|"vocab";
+  type S="home"|"subcerts"|"study_mode"|"flash"|"diff"|"quiz"|"vocab"|"info";
   const [screen,setScreen]=useState<S>("home");
   const [activeCat,setActiveCat]=useState<Cat|null>(null);
   const [subcert,setSubcert]=useState<string|null>(null);
   const [flashCh,setFlashCh]=useState<string|null>(null);
   const [diff,setDiff]=useState<Diff|"ascending">("medium");
+  const [customMinutes,setCustomMinutes]=useState<number|null>(null);
+  const [timed,setTimed]=useState(false);
 
   const cat=activeCat?{...activeCat}as Cat&{color:string;bg:string}:null;
 
-  function openCert(c:Cat){setActiveCat(c);setScreen("subcerts");trackCertOpen(c.id);}
+  function openCert(c:Cat){setActiveCat(c);const info=(certData as {info?:Record<string,unknown[]>}).info?.[c.id];setScreen(info&&info.length?"info":"subcerts");trackCertOpen(c.id);}
   function back(to:S){setScreen(to);}
+  function goHome(){setActiveCat(null);setSubcert(null);setFlashCh(null);setScreen("home");}
 
   // ── Screens ──
+  if(screen==="info"&&cat){
+    return<InfoView cat={cat} onHome={goHome} onBack={()=>back("home")}/>;
+  }
   if(screen==="subcerts"&&cat){
     const subcerts=getSubcerts(cat.id);
     const allQs=ALL[cat.id]||[];
@@ -711,7 +897,7 @@ function HomeScreen(){
                   style={{borderLeftColor:cat.color}}>
                   <span className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0" style={{backgroundColor:cat.color}}>{i+1}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-gray-900 text-sm">{s}</div>
+                    <div className="font-bold text-gray-900 text-sm">{sectionLabel(cat.id,s)}</div>
                     <div className="text-xs text-gray-400 mt-0.5">{qCount} questions</div>
                   </div>
                   <span className="text-gray-300 text-xl">›</span>
@@ -737,7 +923,7 @@ function HomeScreen(){
   }
 
   if(screen==="vocab"&&cat){
-    return<VocabHub cat={cat} onBack={()=>back("subcerts")}/>;
+    return<VocabHub cat={cat} onHome={goHome} onBack={()=>back("subcerts")}/>;
   }
 
   if(screen==="study_mode"&&cat&&subcert){
@@ -745,50 +931,62 @@ function HomeScreen(){
     return(
       <div className="min-h-screen bg-gray-50">
         <div className="px-4 pt-8 pb-5" style={{background:`linear-gradient(135deg,${cat.color} 0%,${cat.color}cc 100%)`}}>
-          <button onClick={()=>back("subcerts")} className="text-white/70 text-sm mb-3 block">← {cat.title}</button>
+          <div className="flex items-center justify-between mb-3 relative"><button onClick={()=>back("subcerts")} className="text-white/70 text-sm max-w-[42%] truncate text-left">← {cat.title}</button><button onClick={goHome} title="Home" aria-label="Home" className="absolute left-1/2 -translate-x-1/2 text-white/90 text-2xl">🏠</button></div>
           <div className="text-3xl mb-1">{cat.emoji}</div>
           <h1 className="text-xl font-black text-white mb-0.5">{subcert}</h1>
           <p className="text-white/75 text-sm">{qCount} questions</p>
         </div>
         <div className="max-w-lg mx-auto p-4 pt-5 flex flex-col gap-3">
+          {/* 1 — OFFICIAL TEST FIRST: in-house, official questions only, timed. This is the real thing. */}
+          <button onClick={()=>{setTimed(true);setFlashCh(null);back("quiz");}}
+            className="w-full text-left rounded-2xl p-5 shadow-md active:scale-[0.99] transition-all flex items-center gap-4 text-white"
+            style={{background:`linear-gradient(135deg,${cat.color} 0%,${cat.color}cc 100%)`}}>
+            <span className="text-4xl">⏱️</span>
+            <div className="flex-1">
+              <div className="font-black text-lg">Official Practice Test</div>
+              <div className="text-sm text-white/85 mt-0.5">The official {cat.title} questions under real exam time — start here</div>
+            </div>
+            <span className="text-white/70 text-2xl">›</span>
+          </button>
+          {/* 2 — PRACTICE TESTS: drill a section by difficulty (where you go after missing on the official test) */}
+          <button onClick={()=>{setTimed(false);back("diff");}}
+            className="w-full text-left bg-white rounded-2xl p-5 shadow-sm border-l-4 hover:shadow-md active:scale-[0.99] transition-all flex items-center gap-4"
+            style={{borderLeftColor:cat.color}}>
+            <span className="text-4xl">📝</span>
+            <div className="flex-1">
+              <div className="font-black text-gray-900 text-lg">{t("practiceTest")}</div>
+              <div className="text-sm text-gray-500 mt-0.5">Drill by difficulty — Easy · Medium · Hard · Ascending</div>
+            </div>
+            <span className="text-gray-300 text-2xl">›</span>
+          </button>
+          {/* 3 — FLASHCARDS LAST: the low-pressure foil — browse terms when you don't want a quiz */}
           <button onClick={()=>{setFlashCh(null);back("flash");trackFlashcardOpen(cat.id,subcert);}}
             className="w-full text-left bg-white rounded-2xl p-5 shadow-sm border-l-4 hover:shadow-md active:scale-[0.99] transition-all flex items-center gap-4"
             style={{borderLeftColor:cat.color}}>
             <span className="text-4xl">📇</span>
             <div className="flex-1">
               <div className="font-black text-gray-900 text-lg">{t("flashcards")}</div>
-              <div className="text-sm text-gray-500 mt-0.5">Browse by topic — tap to flip, swipe to navigate</div>
+              <div className="text-sm text-gray-500 mt-0.5">Browse terms by topic — tap to flip, no pressure</div>
             </div>
             <span className="text-gray-300 text-2xl">›</span>
           </button>
-          <button onClick={()=>back("diff")}
-            className="w-full text-left bg-white rounded-2xl p-5 shadow-sm border-l-4 hover:shadow-md active:scale-[0.99] transition-all flex items-center gap-4"
-            style={{borderLeftColor:cat.color}}>
-            <span className="text-4xl">📝</span>
-            <div className="flex-1">
-              <div className="font-black text-gray-900 text-lg">{t("practiceTest")}</div>
-              <div className="text-sm text-gray-500 mt-0.5">Easy · Medium · Hard · Ascending difficulty</div>
-            </div>
-            <span className="text-gray-300 text-2xl">›</span>
-          </button>
-          <SourceBadge catId={cat.id}/>
         </div>
       </div>
     );
   }
 
   if(screen==="flash"&&cat){
-    return<FlashCategoryView cat={cat} subcert={subcert} onBack={()=>back("study_mode")}/>;
+    return<FlashCategoryView cat={cat} subcert={subcert} onHome={goHome} onBack={()=>back("study_mode")}/>;
   }
 
   if(screen==="diff"&&cat){
     return<DiffScreen cat={cat} chapter={flashCh} subcert={subcert}
-      onPick={d=>{setDiff(d);back("quiz");}}
-      onBack={()=>back("study_mode")}/>;
+      onPick={(d,minutes)=>{setDiff(d);setCustomMinutes(minutes);back("quiz");}}
+      onHome={goHome} onBack={()=>back("study_mode")}/>;
   }
 
   if(screen==="quiz"&&cat){
-    return<Quiz cat={cat} diff={diff} chapter={flashCh} subcert={subcert} onBack={()=>back("diff")}/>;
+    return<Quiz cat={cat} diff={diff} chapter={flashCh} subcert={subcert} timed={timed} customMinutes={timed?null:customMinutes} onHome={goHome} onBack={()=>back(timed?"study_mode":"diff")}/>;
   }
 
   // ── Home ──
