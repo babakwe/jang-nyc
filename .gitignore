@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# data backups written by study-teacher scripts
+app/data/certifications.backup-*.json

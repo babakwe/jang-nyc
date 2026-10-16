@@ -40,7 +40,7 @@ const SOURCE:Record<string,{label:string;url:string;official:boolean;note?:strin
   civics:     {label:"USCIS 100 Civics Questions for Naturalization",url:"https://www.uscis.gov/citizenship/find-study-materials-and-resources",official:true},
   fdny:       {label:"FDNY Certificate of Fitness Study Guides",url:"https://www.nyc.gov/site/fdny/business/certificates-of-fitness/study-material.page",official:false,note:"⚠️ Questions need verification against official FDNY materials."},
   cna:        {label:"ATI TEAS / State CNA competency standards",url:"https://www.pearsonvue.com/us/en/nclex.html",official:false,note:"⚠️ Questions need verification against official Pearson VUE / state nursing board materials."},
-  hha:        {label:"NYS DOH HHA training standards",url:"https://www.health.ny.gov/facilities/home_care/aide_training.htm",official:false,note:"⚠️ Questions need verification against official NYS DOH HHA curriculum."},
+  hha:        {label:"NYS DOH Home Care Curriculum (official, 173 pp) — EN + FR",url:"https://www.health.ny.gov/facilities/home_care/aide_training.htm",official:true},
   teas:       {label:"ATI TEAS official practice",url:"https://www.atitesting.com/teas/study",official:false,note:"⚠️ Questions need verification against official ATI TEAS materials."},
   food_protection:{label:"NYC DOHMH Food Protection Course (free online)",url:"https://www.nyc.gov/site/doh/business/health-academy/food-protection-online-free.page",official:true},
 };
