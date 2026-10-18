@@ -1,6 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/hha", "destination": "https://jang-hha.vercel.app/hha/" },
-    { "source": "/hha/:path*", "destination": "https://jang-hha.vercel.app/hha/:path*" }
-  ]
-}

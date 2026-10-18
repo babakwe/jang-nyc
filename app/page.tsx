@@ -1011,7 +1011,7 @@ function HomeScreen(){
         </div>
       </div>
       <div className="max-w-lg mx-auto p-4 flex flex-col gap-3">
-        <a href="/hha/" className="w-full text-left bg-teal-700 text-white rounded-2xl shadow-sm hover:shadow-md active:scale-[0.99] transition-all p-4 flex items-center gap-4">
+        <a href="https://jang-hha.vercel.app/hha/" className="w-full text-left bg-teal-700 text-white rounded-2xl shadow-sm hover:shadow-md active:scale-[0.99] transition-all p-4 flex items-center gap-4">
           <span className="text-3xl">🩺</span>
           <div className="flex-1 min-w-0">
             <div className="font-bold text-sm">Home Health Aide (HHA) · Aide à domicile</div>
